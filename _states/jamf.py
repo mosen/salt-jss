@@ -5,6 +5,7 @@ from xml.etree import ElementTree
 from salt.exceptions import (
     CommandExecutionError, MinionError, SaltInvocationError
 )
+from xml.sax.saxutils import escape
 
 # python-jss
 HAS_LIBS = False
@@ -156,15 +157,23 @@ def script(name,
             '\'source\' cannot be used in combination with \'contents\', '
         )
 
+    current_script_contents = script.find('script_contents')
+
     if contents is not None:
-        if len(script.find('script_contents').text) > 0:
+        if current_script_contents is not None:
             changes['old']['contents'] = script.find('script_contents').text
 
-        script.add_script(contents)  # Will be XML encoded
+        # script.add_script(contents)  # Will be XML encoded
+        escaped_script_contents = escape(contents)
+        if not current_script_contents:
+            script_contents_tag = ElementTree.SubElement(
+                script, "script_contents")
+            script_contents_tag.text = escaped_script_contents
+
         changes['new']['contents'] = contents
     elif source is not None:
-        old_script_contents = script.find('script_contents')
-        if old_script_contents is not None:
+        current_script_contents = script.find('script_contents')
+        if current_script_contents is not None:
             changes['old']['contents'] = script.find('script_contents').text
 
         script_contents = __salt__['file.get_managed'](

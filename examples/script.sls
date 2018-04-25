@@ -1,4 +1,4 @@
-name_or_unique_id:
+example_script_1:
   jamf.script:
     - name: Script Name
     - category: Category Name
@@ -14,3 +14,14 @@ name_or_unique_id:
 #    - contents: |
 #        inline content or
     - source: salt:///examples/script.sh
+
+example_script_2:
+  jamf.script:
+    - name: Example 2
+    - category: Category Name
+    - filename: script2.sh
+    - info: Script information
+    - notes: Script notes
+    - contents: |
+        #!/bin/bash
+        echo "Inline Content"
