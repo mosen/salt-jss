@@ -1,6 +1,7 @@
 # Import Python libs
 from __future__ import absolute_import, print_function, unicode_literals
 import logging
+from xml.etree import ElementTree
 from salt.exceptions import (
     CommandExecutionError, MinionError, SaltInvocationError
 )
@@ -54,6 +55,10 @@ def script(name,
            source_hash='',
            source_hash_name=None,
            contents=None,
+           template=None,
+           context=None,
+           defaults=None,
+           skip_verify=False,
            **kwargs):
     '''
     Ensure that given script is present.
@@ -123,25 +128,27 @@ def script(name,
             continue  # Don't check for changes on non specified attributes
 
         logger.debug('Checking element {}'.format(attr))
+        attr_el = script.find(attr)
 
-        if script.find(attr) and script.find(attr).text != kwargs[attr]:
-            retval['changes']['old'][attr] = script.find(attr).text
+        if attr_el and attr_el.text != kwargs[attr]:
+            changes['old'][attr] = script.find(attr).text
             script.find(attr).text = kwargs[attr]
-            retval['changes']['new'][attr] = kwargs[attr]
-        elif script.find(attr) is None:
-            script.find(attr).text = kwargs[attr]
-            retval['changes']['new'][attr] = kwargs[attr]
+            changes['new'][attr] = kwargs[attr]
+        elif attr_el is None:
+            attr_el = ElementTree.SubElement(script, attr)
+            attr_el.text = kwargs[attr]
+            changes['new'][attr] = kwargs[attr]
 
     # Parameters
-    if len(kwargs.get('parameters', [])) > 0 or script.find('parameter4').text is not None:
-        for p in range(4, 11):
-            parameter = 'parameter{}'.format(p)
-            if parameter not in kwargs:
-                continue  # Did not specify this parameter so no changes are made.
-
-            if script.find(parameter).text != kwargs[parameter]:
-                script.find(parameter).text = kwargs[parameter]
-                retval['changes']['new'][parameter] = kwargs[parameter]
+    # if len(kwargs.get('parameters', [])) > 0 or script.find('parameter4').text is not None:
+    #     for p in range(4, 11):
+    #         parameter = 'parameter{}'.format(p)
+    #         if parameter not in kwargs:
+    #             continue  # Did not specify this parameter so no changes are made.
+    #
+    #         if script.find(parameter).text != kwargs[parameter]:
+    #             script.find(parameter).text = kwargs[parameter]
+    #             retval['changes']['new'][parameter] = kwargs[parameter]
 
     # Contents
     if source and contents is not None:
@@ -156,22 +163,26 @@ def script(name,
         script.add_script(contents)  # Will be XML encoded
         changes['new']['contents'] = contents
     elif source is not None:
-        if len(script.find('script_contents').text) > 0:
+        old_script_contents = script.find('script_contents')
+        if old_script_contents is not None:
             changes['old']['contents'] = script.find('script_contents').text
 
         script_contents = __salt__['file.get_managed'](
             name,
-            'jinja',
+            template,
             source,
             source_hash,
             source_hash_name,
             None,
             None,
             None,
-            None
+            None,
+            __env__,
+            context,
+            defaults,
+            skip_verify
         )
         logger.debug(script_contents)
-
 
     if len(changes['old'].keys()) > 0 or len(changes['new'].keys()) > 0:
         retval['changes'] = changes  # Only show changes if there were any
