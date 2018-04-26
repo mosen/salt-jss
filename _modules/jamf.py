@@ -102,3 +102,19 @@ def list_ldap_servers():
         )
 
     return ldap_servers
+
+
+def script(name=None, id=None):
+    '''
+    Retrieve a single script object from the JSS.
+
+    :param name:
+    :param id:
+    :return:
+    '''
+    j = _get_jss()
+    try:
+        script = j.Script(name)
+        return script
+    except jss.JSSGetError as e:  # TODO: Check 404 only (not 500)
+        return None

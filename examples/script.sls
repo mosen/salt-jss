@@ -13,7 +13,7 @@ example_script_1:
     - os_requirements: 10.13.x
 #    - contents: |
 #        inline content or
-    - source: salt:///examples/script.sh
+    - source: salt://files/script.sh
 
 example_script_2:
   jamf.script:

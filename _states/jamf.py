@@ -1,6 +1,7 @@
 # Import Python libs
 from __future__ import absolute_import, print_function, unicode_literals
 import logging
+import salt.utils
 from xml.etree import ElementTree
 from salt.exceptions import (
     CommandExecutionError, MinionError, SaltInvocationError
@@ -82,6 +83,11 @@ def script(name,
     contents
         Script contents inline
 
+    template
+        If this setting is applied then the named templating engine will be
+        used to render the downloaded file. Currently, jinja and mako are
+        supported.
+
     source
         Managed file source
 
@@ -131,7 +137,7 @@ def script(name,
         logger.debug('Checking element {}'.format(attr))
         attr_el = script.find(attr)
 
-        if attr_el and attr_el.text != kwargs[attr]:
+        if attr_el is not None and attr_el.text != kwargs[attr]:
             changes['old'][attr] = script.find(attr).text
             script.find(attr).text = kwargs[attr]
             changes['new'][attr] = kwargs[attr]
@@ -165,33 +171,46 @@ def script(name,
 
         # script.add_script(contents)  # Will be XML encoded
         escaped_script_contents = escape(contents)
-        if not current_script_contents:
+        if current_script_contents is None:
             script_contents_tag = ElementTree.SubElement(
                 script, "script_contents")
             script_contents_tag.text = escaped_script_contents
 
         changes['new']['contents'] = contents
     elif source is not None:
+        logger.debug('Retrieving from source {}'.format(source))
+
         current_script_contents = script.find('script_contents')
         if current_script_contents is not None:
             changes['old']['contents'] = script.find('script_contents').text
 
-        script_contents = __salt__['file.get_managed'](
-            name,
-            template,
-            source,
-            source_hash,
-            source_hash_name,
-            None,
-            None,
-            None,
-            None,
-            __env__,
-            context,
-            defaults,
-            skip_verify
+        #script_tmp_file = salt.utils.files.mkstemp()
+        sfn, source_sum, comment = __salt__['file.get_managed'](
+            name="/JSSResource/scripts/name/{}".format(name),
+            template=template,
+            source=source,
+            source_hash=source_hash,
+            source_hash_name=source_hash_name,
+            user=None,
+            group=None,
+            mode=None,
+            attrs=[],
+            saltenv=__env__,
+            context=context,
+            defaults=defaults,
+            skip_verify=False,
+            **kwargs
         )
-        logger.debug(script_contents)
+        logger.debug('script contents follow')
+        logger.debug(sfn)
+        logger.debug(source_sum)
+        logger.debug(comment)
+
+        # with open(script_tmp_file, 'r') as fd:
+        #     lines = fd.readlines()
+        #     logger.debug(lines)
+
+        retval['comment'] = comment
 
     if len(changes['old'].keys()) > 0 or len(changes['new'].keys()) > 0:
         retval['changes'] = changes  # Only show changes if there were any
