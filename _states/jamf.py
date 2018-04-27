@@ -96,7 +96,7 @@ def script(name,
            source_hash='',
            source_hash_name=None,
            contents=None,
-           template=None,
+           template='jinja',
            context=None,
            defaults=None,
            skip_verify=True,
@@ -156,7 +156,7 @@ def script(name,
     script_attrs = ['filename', 'info', 'notes', 'os_requirements', 'priority']  # Treated verbatim
 
     logger.debug("Searching for existing script with name: {}".format(name))
-    retval = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
+    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
     changes = {'old': {}, 'new': {}}
 
     try:
@@ -228,6 +228,7 @@ def script(name,
             script_contents_tag.text = escaped_script_contents
 
         changes['new']['contents'] = contents
+
     elif source is not None:
         logger.debug('Retrieving from source {}'.format(source))
 
@@ -238,41 +239,67 @@ def script(name,
 
             with open(script_tmp_file, 'wb') as fd:
                 fd.write(current_script_contents.text)
+        else:
+            current_script_contents = ElementTree.SubElement(script, 'script_contents')
 
-        sfn, source_sum, comment = __salt__['file.get_managed'](
-            name=script_tmp_file,
-            template=template,
-            source=source,
-            source_hash=source_hash,
-            source_hash_name=source_hash_name,
-            user=None,
-            group=None,
-            mode=None,
-            attrs=[],
-            saltenv=__env__,
-            context=context,
-            defaults=defaults,
-            skip_verify=skip_verify,
-            **kwargs
-        )
-        logger.debug('script contents follow')
-        logger.debug(sfn)
-        logger.debug(source_sum)
-        logger.debug(comment)
+        if __opts__['test']:
+            fcm = __salt__['file.check_managed'](name=script_tmp_file,
+                                                 source=source,
+                                                 source_hash=source_hash,
+                                                 source_hash_name=source_hash_name,
+                                                 user=None,
+                                                 group=None,
+                                                 mode=None,
+                                                 attrs=[],
+                                                 template=template,
+                                                 context=context,
+                                                 defaults=defaults,
+                                                 saltenv=__env__,
+                                                 **kwargs
+                                                 )
+            ret['result'], ret['comment'] = fcm
+        else:
+            # If the source is a list then find which file exists
+            source, source_hash = __salt__['file.source_list'](source,
+                                                               source_hash,
+                                                               __env__)
 
-        # with open(script_tmp_file, 'r') as fd:
-        #     lines = fd.readlines()
-        #     logger.debug(lines)
+            # Gather the source file from the server
+            try:
+                fgm = __salt__['file.get_managed'](
+                    name=script_tmp_file,
+                    template=template,
+                    source=source,
+                    source_hash=source_hash_name,
+                    source_hash_name=None,
+                    user=None,
+                    group=None,
+                    mode=None,
+                    attrs=[],
+                    saltenv=__env__,
+                    context=context,
+                    defaults=defaults,
+                    skip_verify=False,
+                    **kwargs
+                )
+            except Exception as exc:
+                ret['result'] = False
+                ret['changes'] = {}
+                ret['comment'] = 'Unable to manage file: {0}'.format(exc)
+                return ret
 
-        retval['comment'] = comment
+            sfn, source_sum, comment = fgm
+            if len(sfn) > 0:
+                with open(sfn, 'rb') as fd:
+                    current_script_contents.text = fd.read()
 
     if len(changes['old'].keys()) > 0 or len(changes['new'].keys()) > 0:
-        retval['changes'] = changes  # Only show changes if there were any
+        ret['changes'] = changes  # Only show changes if there were any
 
     if __opts__['test']:
-        retval['result'] = None
+        ret['result'] = None
     else:
         script.save()
-        retval['result'] = True
+        ret['result'] = True
 
-    return retval
+    return ret
