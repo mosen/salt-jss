@@ -115,19 +115,15 @@ def script(name,
     '''
     j = _get_jss()
     script_attrs = ['filename', 'info', 'notes', 'os_requirements']  # Treated verbatim
-    priorities = {'before': 'Before', 'after': 'After'}
 
     logger.debug("Searching for existing script with name: {}".format(name))
     retval = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
     changes = {'old': {}, 'new': {}}
 
     try:
-        script = j.Script(name)
-        retval['comment'] = 'The script already exists.'
-        retval['result'] = True
-
-    except jss.JSSGetError as e:  # TODO: Check 404 only (not 500)
-        script = jss.Script(j, name)
+        script = j.Script(name)  # Script exists, but may be different.
+    except jss.JSSGetError as e:
+        script = jss.Script(j, name)  # Script does not exist
 
     # Basic attributes
     for attr in script_attrs:
@@ -147,15 +143,20 @@ def script(name,
             changes['new'][attr] = kwargs[attr]
 
     # Parameters
-    # if len(kwargs.get('parameters', [])) > 0 or script.find('parameter4').text is not None:
-    #     for p in range(4, 11):
-    #         parameter = 'parameter{}'.format(p)
-    #         if parameter not in kwargs:
-    #             continue  # Did not specify this parameter so no changes are made.
-    #
-    #         if script.find(parameter).text != kwargs[parameter]:
-    #             script.find(parameter).text = kwargs[parameter]
-    #             retval['changes']['new'][parameter] = kwargs[parameter]
+    if len(kwargs.get('parameters', [])) > 0:
+        for p in range(4, 11):
+            parameter = 'parameter{}'.format(p)
+
+            if p - 4 >= len(kwargs['parameters']):
+                break  # No more parameters to process
+
+            parameter_el = script.find(parameter)
+            if parameter_el is None:
+                parameter_el = ElementTree.SubElement(script, parameter)
+
+            if parameter_el.text != kwargs['parameters'][p - 4]:
+                parameter_el.text = kwargs['parameters'][p - 4]
+                changes['new'][parameter] = kwargs['parameters'][p - 4]
 
     # Contents
     if source and contents is not None:

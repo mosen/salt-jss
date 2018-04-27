@@ -25,3 +25,7 @@ example_script_2:
     - contents: |
         #!/bin/bash
         echo "Inline Content"
+    - parameters:
+      - a
+      - b
+      - c

@@ -108,13 +108,25 @@ def script(name=None, id=None):
     '''
     Retrieve a single script object from the JSS.
 
-    :param name:
-    :param id:
-    :return:
+    You must use either the name or the id to reference a script, but not both.
+
+    name
+        (string) - The unique script name
+    id
+        (integer) - The script id
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt-call jss.script 'Script Name'
+
     '''
     j = _get_jss()
     try:
         script = j.Script(name)
         return script
     except jss.JSSGetError as e:  # TODO: Check 404 only (not 500)
+        logging.debug('No such script found: {}'.format(name))
         return None
+
