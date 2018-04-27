@@ -52,6 +52,45 @@ def _get_jss():
     return j
 
 
+def category(name,
+             priority='9'):
+    '''
+    Ensure that the given category is present.
+
+    name
+        Name of the category
+
+    priority
+        Self-Service priority, default is 9
+    '''
+    j = _get_jss()
+    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
+    changes = {'old': {}, 'new': {}}
+
+    try:
+        category = j.Category(name)
+
+        current_priority = category.find('priority').text
+        if current_priority != priority:
+            changes['old']['priority'] = current_priority
+            category.find('priority').text = str(priority)
+            changes['new']['priority'] = str(priority)
+            category.save()
+            ret['result'] = True
+
+    except jss.JSSGetError as e:
+        category = jss.Category(j, name)
+        priority_el = ElementTree.SubElement(category, 'priority')
+        priority_el.text = str(priority)
+        changes['new']['name'] = name
+        changes['new']['priority'] = str(priority)
+        category.save()
+        ret['result'] = True
+
+    ret['changes'] = changes
+    return ret
+
+
 def script(name,
            source=None,
            source_hash='',
@@ -60,7 +99,7 @@ def script(name,
            template=None,
            context=None,
            defaults=None,
-           skip_verify=False,
+           skip_verify=True,
            **kwargs):
     '''
     Ensure that given script is present.
@@ -101,7 +140,7 @@ def script(name,
             - filename: filename.sh
             - info: Script information
             - notes: Script notes
-            - priority: before | after | reboot
+            - priority: Before | After | reboot
             - parameters:
               - p4
               - p5
@@ -114,7 +153,7 @@ def script(name,
             - source_hash_name:
     '''
     j = _get_jss()
-    script_attrs = ['filename', 'info', 'notes', 'os_requirements']  # Treated verbatim
+    script_attrs = ['filename', 'info', 'notes', 'os_requirements', 'priority']  # Treated verbatim
 
     logger.debug("Searching for existing script with name: {}".format(name))
     retval = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
@@ -141,6 +180,17 @@ def script(name,
             attr_el = ElementTree.SubElement(script, attr)
             attr_el.text = kwargs[attr]
             changes['new'][attr] = kwargs[attr]
+
+    # Category
+    if 'category' in kwargs:
+        category_el = script.find('category')
+        if category_el is None:
+            category_el = ElementTree.SubElement(script, 'category')
+
+        if category_el.text != kwargs['category']:
+            changes['old']['category'] = category_el.text
+            category_el.text = kwargs['category']
+            changes['new']['category'] = kwargs['category']
 
     # Parameters
     if len(kwargs.get('parameters', [])) > 0:
@@ -181,13 +231,16 @@ def script(name,
     elif source is not None:
         logger.debug('Retrieving from source {}'.format(source))
 
+        script_tmp_file = salt.utils.files.mkstemp()
         current_script_contents = script.find('script_contents')
-        if current_script_contents is not None:
+        if current_script_contents is not None and current_script_contents.text is not None:
             changes['old']['contents'] = script.find('script_contents').text
 
-        #script_tmp_file = salt.utils.files.mkstemp()
+            with open(script_tmp_file, 'wb') as fd:
+                fd.write(current_script_contents.text)
+
         sfn, source_sum, comment = __salt__['file.get_managed'](
-            name="/JSSResource/scripts/name/{}".format(name),
+            name=script_tmp_file,
             template=template,
             source=source,
             source_hash=source_hash,
@@ -199,7 +252,7 @@ def script(name,
             saltenv=__env__,
             context=context,
             defaults=defaults,
-            skip_verify=False,
+            skip_verify=skip_verify,
             **kwargs
         )
         logger.debug('script contents follow')
