@@ -67,7 +67,7 @@ def activation_code():
 
     .. code-block:: bash
 
-        salt-call jss.activation_code
+        salt-call jamf.activation_code
     '''
     j = _get_jss()
     try:
@@ -91,7 +91,7 @@ def list_ldap_servers():
 
     .. code-block:: bash
 
-        salt-call jss.list_ldap_servers
+        salt-call jamf.list_ldap_servers
     '''
     j = _get_jss()
     try:
@@ -102,6 +102,31 @@ def list_ldap_servers():
         )
 
     return ldap_servers
+
+
+def ldap_server(name=None, id=None):
+    '''
+    Retrieve a single LDAP server
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt-call jamf.ldap_server name="Name"
+        salt-call jamf.ldap_server id=1
+    '''
+    if id is None and name is None:
+        raise SaltInvocationError('You must provide either a name or id parameter')
+
+    j = _get_jss()
+    try:
+        result = j.LDAPServer(name)
+    except jss.JSSGetError as e:
+        raise CommandExecutionError(
+            'Unable to retrieve LDAP server(s), {0}'.format(e.message)
+        )
+
+    return result
 
 
 def script(name=None, id=None):
@@ -122,11 +147,15 @@ def script(name=None, id=None):
         salt-call jss.script 'Script Name'
 
     '''
+    if id is None and name is None:
+        raise SaltInvocationError('You must provide either a name or id parameter')
+
     j = _get_jss()
     try:
         script = j.Script(name)
         return script
-    except jss.JSSGetError as e:  # TODO: Check 404 only (not 500)
-        logging.debug('No such script found: {}'.format(name))
-        return None
+    except jss.JSSGetError as e:
+        raise CommandExecutionError(
+            'Unable to retrieve script(s), {0}'.format(e.message)
+        )
 

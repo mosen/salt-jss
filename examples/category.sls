@@ -1,4 +1,3 @@
-category_1:
+'Misc':
   jamf.category:
-    - name: Misc
     - priority: 9
