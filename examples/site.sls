@@ -1,0 +1,2 @@
+'Minneapolis':
+  jamf.site

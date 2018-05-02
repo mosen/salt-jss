@@ -91,6 +91,31 @@ def category(name,
     return ret
 
 
+def site(name):
+    '''
+    Ensure that the given site is present.
+
+    name
+        Name of the site
+    '''
+    j = _get_jss()
+    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
+    changes = {'old': {}, 'new': {}}
+
+    try:
+        site = j.Site(name)
+        ret['result'] = True
+
+    except jss.JSSGetError as e:
+        site = jss.Site(j, name)
+        changes['new']['name'] = name
+        site.save()
+        ret['changes'] = changes
+        ret['result'] = True
+
+    return ret
+
+
 def ldap_server(name,
                 hostname,
                 port,
