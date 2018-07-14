@@ -35,10 +35,6 @@ def __virtual__():
 
 def _get_jss():
     jss_options = __salt__['config.option']('jss')
-    # jss_url = __salt__['config.option']('jss.url')
-    # jss_user = __salt__['config.option']('jss.username')
-    # jss_password = __salt__['config.option']('jss.password')
-    # jss_ssl_verify = __salt__['config.option']('jss.ssl_verify', True)
 
     logger.debug('Using JAMF Pro URL: {}'.format(jss_options['url']))
 
@@ -78,7 +74,7 @@ def category(name,
             category.save()
             ret['result'] = True
 
-    except jss.JSSGetError as e:
+    except jss.GetError as e:
         category = jss.Category(j, name)
         priority_el = ElementTree.SubElement(category, 'priority')
         priority_el.text = str(priority)
@@ -106,7 +102,7 @@ def site(name):
         site = j.Site(name)
         ret['result'] = True
 
-    except jss.JSSGetError as e:
+    except jss.GetError as e:
         site = jss.Site(j, name)
         changes['new']['name'] = name
         site.save()
@@ -150,19 +146,20 @@ def ldap_server(name,
     j = _get_jss()
     ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
     changes = {'old': {}, 'new': {}}
-    required_properties = ['hostname', 'port', 'authentication_type', 'server_type']
-    connection_properties = ['authentication_type', 'open_close_timeout',
+    required_properties = ['name', 'hostname', 'port', 'authentication_type', 'server_type']
+    connection_properties = ['authentication_type', 'open_close_timeout', 'use_ssl',
                              'search_timeout', 'referral_response', 'use_wildcards', 'connection_is_used_for']
     kwargs['connection_is_used_for'] = 'users'  # This seems to be always static
 
     try:
         ldap_server = j.LDAPServer(name)
         connection_el = ldap_server.find('connection')
-    except jss.JSSGetError as e:
+    except jss.GetError as e:
         ldap_server = jss.LDAPServer(j, name)
         connection_el = ElementTree.SubElement(ldap_server, 'connection')
 
     required_values = {
+        'name': name,
         'hostname': hostname,
         'port': str(port),
         'server_type': server_type,
@@ -175,8 +172,30 @@ def ldap_server(name,
         if el is None:
             el = ElementTree.SubElement(connection_el, req_prop)
 
-        el.text = required_values[req_prop]
-        changes['new'][req_prop] = required_values[req_prop]
+        old_value = el.text
+        el.text = str(required_values[req_prop])
+
+        if old_value != el.text:
+            changes['old'][req_prop] = old_value
+            changes['new'][req_prop] = required_values[req_prop]
+
+    if authentication_type != "none":
+        if 'distinguished_username' not in kwargs or 'password' not in kwargs:
+            raise SaltInvocationError(
+                'cannot specify an authentication type if you do not supply a distinguished_username and password, '
+            )
+
+        account_el = connection_el.find('account')
+        if account_el is None:
+            account_el = ElementTree.SubElement(connection_el, 'account')
+            dn_el = ElementTree.SubElement(account_el, 'distinguished_username')
+            dn_el.text = kwargs['distinguished_username']
+            pw_el = ElementTree.SubElement(account_el, 'password')
+            pw_el.text = kwargs['password']
+        else:
+            dn_el = account_el.find('distinguished_username')
+            dn_el.text = kwargs['distinguished_username']
+            # TODO
 
     # Optional properties
     for conn_prop in connection_properties:
@@ -188,9 +207,25 @@ def ldap_server(name,
             el = ElementTree.SubElement(connection_el, conn_prop)
 
         if el.text != kwargs[conn_prop]:
-            changes['old'] = connection_el.text
-            el.text = kwargs[conn_prop]
-            changes['new'] = kwargs[conn_prop]
+            changes['old'][conn_prop] = connection_el.text
+            if isinstance(kwargs[conn_prop], bool):
+                el.text = 'true' if kwargs[conn_prop] else 'false'
+            else:
+                el.text = str(kwargs[conn_prop])
+            changes['new'][conn_prop] = kwargs[conn_prop]
+
+    user_mappings_args = {
+        'object_classes': '',
+        'search_base': 'search_base',
+        'search_scope': 'search_scope',
+    }
+
+    # user_mapping_args = {
+    #     'user_id': 'map_user_id',
+    #     'username': 'map_username',
+    #     'realname': 'map_realname',
+    #     'email_address'
+    # }
 
     ldap_server.save()
     ret['changes'] = changes
@@ -200,17 +235,37 @@ def ldap_server(name,
 
 
 def script(name,
+           # From file.managed:
            source=None,
            source_hash='',
            source_hash_name=None,
+           template=None,
            contents=None,
-           template='jinja',
            context=None,
            defaults=None,
            skip_verify=True,
            **kwargs):
     '''
     Ensure that given script is present.
+
+    This state inherits a lot of behaviour from ``file.managed`` to support non-local file sources.
+
+
+    source
+        Managed file source, exactly the same rules as ``file.managed`` as per the excerpt below:
+
+            The source file to download to the minion, this source file can be
+            hosted on either the salt master server (``salt://``), the salt minion
+            local file system (``/``), or on an HTTP or FTP server (``http(s)://``,
+            ``ftp://``).
+
+            If the file is hosted on a HTTP or FTP server then the source_hash
+            argument is also required.
+
+        This is a stripped down implementation of the same function, so the following restrictions apply:
+
+        - No user or group ownership as we are dealing with a remote resource not a filesystem item.
+
 
     name
         Name of the script (must be unique for the entire jss instance).
@@ -235,8 +290,7 @@ def script(name,
         used to render the downloaded file. Currently, jinja and mako are
         supported.
 
-    source
-        Managed file source
+
 
     **Example:**
 
@@ -269,7 +323,7 @@ def script(name,
 
     try:
         script = j.Script(name)  # Script exists, but may be different.
-    except jss.JSSGetError as e:
+    except jss.GetError as e:
         script = jss.Script(j, name)  # Script does not exist
 
     # Basic attributes
@@ -338,68 +392,61 @@ def script(name,
         changes['new']['contents'] = contents
 
     elif source is not None:
-        logger.debug('Retrieving from source {}'.format(source))
+        # Normally, in file.managed, a more complex workflow is used:
+        # file.managed calls a bunch of other modules:
+        # - file.source_list evaluates a list of sources for the first existing item
+        # - file.get_managed `gathers` the source file from the server, we can't use this because it expects
+        #   a destination file to check against a checksum, so we have to break it down into cp.* calls and perform
+        #   our own hashing.
 
-        script_tmp_file = salt.utils.files.mkstemp()
-        current_script_contents = script.find('script_contents')
-        if current_script_contents is not None and current_script_contents.text is not None:
-            changes['old']['contents'] = script.find('script_contents').text
+        # If the source is a list then find which file exists.
+        # NOTE: source_hash is not always present
+        source, source_hash = __salt__['file.source_list'](
+            source,
+            source_hash,
+            __env__
+        )
 
-            with open(script_tmp_file, 'wb') as fd:
-                fd.write(current_script_contents.text)
-        else:
-            current_script_contents = ElementTree.SubElement(script, 'script_contents')
+        # file.get_managed will retrieve the data if its a template, or if it is remote (http, ftp, sftp, s3) but
+        # somehow a remote salt:// file doesn't even count and sfn is empty in that case
+        sfn, source_sum, comment_ = __salt__['file.get_managed'](
+            name,
+            None,  # if template is None sfn is None??
+            source,
+            source_hash,
+            source_hash_name,
+            0,
+            0,
+            755,
+            None,
+            'base',
+            context,
+            defaults,
+            skip_verify=False,
+            **kwargs
+        )
 
-        if __opts__['test']:
-            fcm = __salt__['file.check_managed'](name=script_tmp_file,
-                                                 source=source,
-                                                 source_hash=source_hash,
-                                                 source_hash_name=source_hash_name,
-                                                 user=None,
-                                                 group=None,
-                                                 mode=None,
-                                                 attrs=[],
-                                                 template=template,
-                                                 context=context,
-                                                 defaults=defaults,
-                                                 saltenv=__env__,
-                                                 **kwargs
-                                                 )
-            ret['result'], ret['comment'] = fcm
-        else:
-            # If the source is a list then find which file exists
-            source, source_hash = __salt__['file.source_list'](source,
-                                                               source_hash,
-                                                               __env__)
+        # sfn only guaranteed to exist if file is remote or template.
+        # otherwise, just grab contents.
+        # Here, we implement parts of file.manage_file because we don't need to deal with the filesystem really.
+        ret = __salt__['jamf.manage_script'](
+            name,
+            sfn,
+            ret,
+            source,
+            source_sum,
+            __env__,
+        )
 
-            # Gather the source file from the server
-            try:
-                fgm = __salt__['file.get_managed'](
-                    name=script_tmp_file,
-                    template=template,
-                    source=source,
-                    source_hash=source_hash_name,
-                    source_hash_name=None,
-                    user=None,
-                    group=None,
-                    mode=None,
-                    attrs=[],
-                    saltenv=__env__,
-                    context=context,
-                    defaults=defaults,
-                    skip_verify=False,
-                    **kwargs
-                )
-            except Exception as exc:
-                ret['result'] = False
-                ret['changes'] = {}
-                ret['comment'] = 'Unable to manage file: {0}'.format(exc)
-                return ret
 
-            sfn, source_sum, comment = fgm
-            if len(sfn) > 0:
-                with open(sfn, 'rb') as fd:
-                    current_script_contents.text = fd.read()
+        # current_script_contents = script.find('script_contents')
+        # if current_script_contents is not None and current_script_contents.text is not None:
+        #     changes['old']['contents'] = script.find('script_contents').text
+        # else:
+        #     current_script_contents = ElementTree.SubElement(script, 'script_contents')
+        #
+        # current_script_contents.text = script_contents
+        # changes['new']['contents'] = script_contents
 
     if len(changes['old'].keys()) > 0 or len(changes['new'].keys()) > 0:
         ret['changes'] = changes  # Only show changes if there were any

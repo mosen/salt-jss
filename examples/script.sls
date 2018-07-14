@@ -1,6 +1,6 @@
-Scripts:
-  jamf.category:
-    - priority: 9
+#Scripts:
+#  jamf.category:
+#    - priority: 9
 
 
 example_script_1:
@@ -15,18 +15,27 @@ example_script_1:
 #    - contents: |
 #        inline content or
     - source: salt://files/script.sh
-
-example_script_2:
-  jamf.script:
-    - name: Example 2
-#    - category: Category Name
-    - filename: script2.sh
-    - info: Script information
-    - notes: Script notes
-    - contents: |
-        #!/bin/bash
-        echo "Inline Content"
     - parameters:
-      - a
-      - b
-      - c
+      - parameter4
+      - parameter5
+      - parameter6
+      - parameter7
+      - parameter8
+      - parameter9
+      - parameter10
+      - parameter11
+
+#example_script_2:
+#  jamf.script:
+#    - name: Example 2
+##    - category: Category Name
+#    - filename: script2.sh
+#    - info: Script information
+#    - notes: Script notes
+#    - contents: |
+#        #!/bin/bash
+#        echo "Inline Content"
+#    - parameters:
+#      - a
+#      - b
+#      - c
