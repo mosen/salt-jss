@@ -315,60 +315,9 @@ def script(name,
             - source_hash_name:
     '''
     j = _get_jss()
-    script_attrs = ['filename', 'info', 'notes', 'os_requirements', 'priority']  # Treated verbatim
 
     logger.debug("Searching for existing script with name: {}".format(name))
-    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
-    changes = {'old': {}, 'new': {}}
-
-    try:
-        script = j.Script(name)  # Script exists, but may be different.
-    except jss.GetError as e:
-        script = jss.Script(j, name)  # Script does not exist
-
-    # Basic attributes
-    for attr in script_attrs:
-        if attr not in kwargs:
-            continue  # Don't check for changes on non specified attributes
-
-        logger.debug('Checking element {}'.format(attr))
-        attr_el = script.find(attr)
-
-        if attr_el is not None and attr_el.text != kwargs[attr]:
-            changes['old'][attr] = script.find(attr).text
-            script.find(attr).text = kwargs[attr]
-            changes['new'][attr] = kwargs[attr]
-        elif attr_el is None:
-            attr_el = ElementTree.SubElement(script, attr)
-            attr_el.text = kwargs[attr]
-            changes['new'][attr] = kwargs[attr]
-
-    # Category
-    if 'category' in kwargs:
-        category_el = script.find('category')
-        if category_el is None:
-            category_el = ElementTree.SubElement(script, 'category')
-
-        if category_el.text != kwargs['category']:
-            changes['old']['category'] = category_el.text
-            category_el.text = kwargs['category']
-            changes['new']['category'] = kwargs['category']
-
-    # Parameters
-    if len(kwargs.get('parameters', [])) > 0:
-        for p in range(4, 11):
-            parameter = 'parameter{}'.format(p)
-
-            if p - 4 >= len(kwargs['parameters']):
-                break  # No more parameters to process
-
-            parameter_el = script.find(parameter)
-            if parameter_el is None:
-                parameter_el = ElementTree.SubElement(script, parameter)
-
-            if parameter_el.text != kwargs['parameters'][p - 4]:
-                parameter_el.text = kwargs['parameters'][p - 4]
-                changes['new'][parameter] = kwargs['parameters'][p - 4]
+    ret = {'name': name, 'result': False, 'changes': {'old': {}, 'new': {}}, 'comment': ''}
 
     # Contents
     if source and contents is not None:
@@ -376,22 +325,14 @@ def script(name,
             '\'source\' cannot be used in combination with \'contents\', '
         )
 
-    current_script_contents = script.find('script_contents')
+    priority = kwargs.get('priority', None)
+    if priority is not None:
+        if priority not in ['After', 'Before', 'At Reboot']:
+            raise SaltInvocationError(
+                '\'priority\' must be one of: \'After\', \'Before\', or \'At Reboot\''
+            )
 
-    if contents is not None:
-        if current_script_contents is not None:
-            changes['old']['contents'] = script.find('script_contents').text
-
-        # script.add_script(contents)  # Will be XML encoded
-        escaped_script_contents = escape(contents)
-        if current_script_contents is None:
-            script_contents_tag = ElementTree.SubElement(
-                script, "script_contents")
-            script_contents_tag.text = escaped_script_contents
-
-        changes['new']['contents'] = contents
-
-    elif source is not None:
+    if source is not None:
         # Normally, in file.managed, a more complex workflow is used:
         # file.managed calls a bunch of other modules:
         # - file.source_list evaluates a list of sources for the first existing item
@@ -436,25 +377,17 @@ def script(name,
             source,
             source_sum,
             __env__,
+            **kwargs
         )
-
-
-        # current_script_contents = script.find('script_contents')
-        # if current_script_contents is not None and current_script_contents.text is not None:
-        #     changes['old']['contents'] = script.find('script_contents').text
-        # else:
-        #     current_script_contents = ElementTree.SubElement(script, 'script_contents')
-        #
-        # current_script_contents.text = script_contents
-        # changes['new']['contents'] = script_contents
-
-    if len(changes['old'].keys()) > 0 or len(changes['new'].keys()) > 0:
-        ret['changes'] = changes  # Only show changes if there were any
-
-    if __opts__['test']:
-        ret['result'] = None
-    else:
-        script.save()
-        ret['result'] = True
+    elif contents is not None:
+        ret = __salt__['jamf.manage_script'](
+            name,
+            None,
+            ret,
+            None,
+            None,
+            __env__,
+            **kwargs
+        )
 
     return ret

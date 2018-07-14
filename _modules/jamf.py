@@ -13,8 +13,10 @@ Manage a JAMF Pro instance via the JAMF API
 '''
 import logging
 import os
+import difflib
 from xml.etree import ElementTree
 import salt.utils.locales
+import salt.utils.data
 from salt.exceptions import (
     CommandExecutionError, MinionError, SaltInvocationError
 )
@@ -176,6 +178,12 @@ def manage_script(name,
                   show_changes=True,
                   contents=None,
                   skip_verify=False,
+                  category=None,
+                  info=None,
+                  notes=None,
+                  os_requirements=None,
+                  parameters=None,
+                  priority=None,
                   **kwargs):
     '''
     Check the destination against information retrieved by get_managed and make modifications if necessary.
@@ -224,9 +232,31 @@ def manage_script(name,
     '''
     if not ret:
         ret = {'name': name,
-               'changes': {},
+               'changes': {'new': {}, 'old': {}},
                'comment': '',
                'result': True}
+
+    def _ensure_element(parent, child_name, newvalue=None):
+        '''Ensure that the sub element exists and has the value newvalue.
+
+        Returns tuple of old value, new value. Or None if no change made'''
+        if newvalue is not None:
+            el = parent.find(child_name)
+            old = None
+            new = None
+
+            if el is not None and el.text != newvalue:
+                old = el.text
+                new = newvalue
+                el.text = newvalue
+            elif el is None:
+                el = ElementTree.SubElement(parent, child_name)
+                new = newvalue
+                el.text = newvalue
+
+            return old, new
+        else:
+            return None, None
 
     # Ensure that user-provided hash string is lowercase
     if source_sum and ('hsum' in source_sum):
@@ -247,13 +277,60 @@ def manage_script(name,
             }
 
     j = _get_jss()
+    is_new = False
+
     try:
         script = j.Script(name)
     except jss.GetError:
         # no such script
-        script = None
+        script = jss.Script(j, name)
+        is_new = True
 
-    if script is not None:
+    # Basics
+    old_info, new_info = _ensure_element(script, 'info', info)
+    if old_info or new_info:
+        ret['changes']['old']['info'], ret['changes']['new']['info'] = old_info, new_info
+
+    old_notes, new_notes = _ensure_element(script, 'notes', notes)
+    if old_notes or new_notes:
+        ret['changes']['old']['notes'], ret['changes']['new']['notes'] = old_notes, new_notes
+
+    old_os_requirements, new_os_requirements = _ensure_element(script, 'os_requirements', os_requirements)
+    if old_os_requirements or new_os_requirements:
+        ret['changes']['old']['os_requirements'], ret['changes']['new']['os_requirements'] = old_os_requirements, new_os_requirements
+
+    old_priority, new_priority = _ensure_element(script, 'priority', priority)
+    if old_priority or new_priority:
+        ret['changes']['old']['priority'], ret['changes']['new']['priority'] = old_priority, new_priority
+
+    old_category, new_category = _ensure_element(script, 'category', category)
+    if old_category or new_category:
+        ret['changes']['old']['category'], ret['changes']['new']['category'] = old_category, new_category
+
+    # Parameters
+    if parameters is not None:
+        parameters_el = script.find('parameters')
+        if parameters_el is None:
+            parameters_el = ElementTree.SubElement(script, 'parameters')
+
+        for p in range(4, 12):
+            parameter = 'parameter{}'.format(p)
+
+            parameter_el = parameters_el.find(parameter)
+            if parameter_el is None:
+                parameter_el = ElementTree.SubElement(parameters_el, parameter)
+
+            if p - 4 > len(parameters) - 1:
+                ret['changes']['old'][parameter] = parameter_el.text
+                ret['changes']['new'][parameter] = None
+                parameter_el.text = None
+            else:
+                if parameter_el.text != parameters[p - 4]:
+                    ret['changes']['old'][parameter] = parameter_el.text
+                    parameter_el.text = parameters[p - 4]
+                    ret['changes']['new'][parameter] = parameters[p - 4]
+
+    if not is_new:
         name_contents = script.find('script_contents').text
         name_sum = None
 
@@ -266,25 +343,21 @@ def manage_script(name,
         if source is not None:
             print('using source')
             if name_sum is None or source_sum.get('hsum', __opts__['hash_type']) != name_sum:
-                print('needs update')
+                print('needs update: {} vs {}'.format(source_sum.get('hsum', __opts__['hash_type']), name_sum))
                 # Print a diff equivalent to diff -u old new
                 if __salt__['config.option']('obfuscate_templates'):
                     ret['changes']['diff'] = '<Obfuscated Template>'
                 elif not show_changes:
                     ret['changes']['diff'] = '<show_changes=False>'
                 else:
-                    ret['changes']['diff'] = 'thee should be a diff here'
-                    # try:
-                    #     ret['changes']['diff'] = get_diff(
-                    #         real_name, sfn, show_filenames=False)
-                    # except CommandExecutionError as exc:
-                    #     ret['changes']['diff'] = exc.strerror
+                    pass
 
                 try:
                     sfn_contents = __salt__['cp.get_file_str'](sfn)
-                    print(sfn_contents)
+                    ret['changes']['diff'] = ''.join(difflib.unified_diff(name_contents, sfn_contents, 'old {}'.format(name), 'new {}'.format(name)))
                     script.add_script(sfn_contents)
                     script.save()
+                    ret['result'] = True
                 except:
                     raise CommandExecutionError('cant save script update')
         elif contents is not None:
@@ -305,8 +378,6 @@ def manage_script(name,
 
         return ret
     else:  # target script does not exist
-        script = jss.Script(j, name)
-
         if source is not None:
             ret['changes']['diff'] = 'New script'
             sfn_contents = __salt__['cp.get_file_str'](sfn)
@@ -320,4 +391,5 @@ def manage_script(name,
                 script.add_script(contents)
 
         script.save()
+        ret['result'] = True
         return ret

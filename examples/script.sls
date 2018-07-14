@@ -5,15 +5,16 @@
 
 example_script_1:
   jamf.script:
-    - name: Script Name
+    - name: Script2
     - category: Scripts
     - filename: filename.sh
-    - info: Script information
-    - notes: Script notes
-#    - priority: before | after | reboot
-    - os_requirements: 10.13.x
+    - info: More information
+    - notes: More notes
+    - priority: Before
+    - os_requirements: 10.13.x,10.12.x,10.11.x
 #    - contents: |
-#        inline content or
+#        #!/bin/bash
+#        echo "Inline script content."
     - source: salt://files/script.sh
     - parameters:
       - parameter4
