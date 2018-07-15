@@ -392,3 +392,103 @@ def script(name,
         )
 
     return ret
+
+
+def smart_computer_group(name,
+                         criteria,
+                         site=None,
+                         **kwargs):
+    '''Ensure that the given Computer Smart Group is present.
+
+    name
+        The unique name for the smart group. This is also used to determine whether the smart group already exists.
+
+    criteria
+        An array in the form of:
+
+            - criteria:
+              - Application Title:
+                  is: AppCode.app
+              - Application Version:
+                  is_not: 2017.1.2
+
+        With the key of each array describing the field to base the criteria on, and the value being the condition
+
+    site
+        The (optional) site name to be associated with the smart group.
+
+    '''
+    j = _get_jss()
+    ret = {'name': name, 'result': False, 'changes': {'old': {}, 'new': {}}, 'comment': ''}
+    is_new = False
+
+    try:  # For now, we don't even compare criteria against the existing object. Just the existence of that object.
+        grp = j.ComputerGroup(name)
+        ret['result'] = None
+        del ret['changes']['old']
+        del ret['changes']['new']
+    except jss.GetError as e:
+        grp = jss.ComputerGroup(j, name)
+        grp.find('is_smart').text = 'true'
+        is_new = True
+
+        criteria_el = grp.find('criteria')
+        i = 0
+
+        for cri in criteria:
+            ret['changes']['new']['criteria'] = []
+            new_change = {}
+            for name, definition in cri.items():
+                criterion_el = ElementTree.SubElement(criteria_el, 'criterion')
+                name_el = ElementTree.SubElement(criterion_el, 'name')
+                name_el.text = new_change['name'] = name
+                priority_el = ElementTree.SubElement(criterion_el, 'priority')
+                priority_el.text = new_change['priority'] = str(i)
+                and_or_el = ElementTree.SubElement(criterion_el, 'and_or')
+                and_or_el.text = new_change['and_or'] = 'and'
+                search_type_el = ElementTree.SubElement(criterion_el, 'search_type')
+
+                if 'is' in definition:
+                    value = definition['is']
+                    search_type_el.text = new_change['search_type'] = 'is'
+                elif 'is_not' in definition:
+                    value = definition['is_not']
+                    search_type_el.text = new_change['search_type'] = 'is not'
+                elif 'like' in definition:
+                    value = definition['is_not']
+                    search_type_el.text = new_change['search_type'] = 'like'
+                elif 'not_like' in definition:
+                    value = definition['not_like']
+                    search_type_el.text = new_change['search_type'] = 'not like'
+                elif 'has' in definition:
+                    value = definition['has']
+                    search_type_el.text = new_change['search_type'] = 'has'
+                elif 'does_not_have' in definition:
+                    value = definition['does_not_have']
+                    search_type_el.text = new_change['search_type'] = 'does_not_have'
+                elif 'before' in definition:  # Before specific date (YYYY-MM-DD)
+                    value = definition['before']
+                    search_type_el.text = new_change['search_type'] = 'before'
+                elif 'after' in definition:  # After specific date (YYYY-MM-DD)
+                    value = definition['after']
+                    search_type_el.text = new_change['search_type'] = 'after'
+                else:
+                    raise SaltInvocationError('Unrecognised search type: {}'.format(definition))
+
+                value_el = ElementTree.SubElement(criterion_el, 'value')
+                value_el.text = new_change['value'] = value
+
+                opening_paren_el = ElementTree.SubElement(criterion_el, 'opening_paren')
+                opening_paren_el.text = 'false'
+                closing_paren_el = ElementTree.SubElement(criterion_el, 'closing_paren')
+                closing_paren_el.text = 'false'
+
+                i += 1
+
+                ret['changes']['new']['criteria'].append(new_change)
+                new_change = {}
+
+        grp.save()
+        ret['result'] = True
+
+    return ret
