@@ -1,0 +1,3 @@
+IT Department:
+  jamf:
+    - department

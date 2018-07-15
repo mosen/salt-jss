@@ -234,6 +234,86 @@ def ldap_server(name,
     return ret
 
 
+def mac_configuration_profile(name,
+                              # From file.managed:
+                              source=None,
+                              source_hash='',
+                              source_hash_name=None,
+                              contents=None,
+                              context=None,
+                              defaults=None,
+                              skip_verify=True,
+                              **kwargs):
+    '''
+    Ensure that the given mac configuration profile is present.
+
+    This state inherits a lot of behaviour from ``file.managed`` to support non-local file sources.
+    '''
+    j = _get_jss()
+
+    ret = {'name': name, 'result': False, 'changes': {'old': {}, 'new': {}}, 'comment': ''}
+
+    # Contents
+    if source and contents is not None:
+        raise SaltInvocationError(
+            '\'source\' cannot be used in combination with \'contents\', '
+        )
+
+    if source is not None:
+        # If the source is a list then find which file exists.
+        # NOTE: source_hash is not always present
+        source, source_hash = __salt__['file.source_list'](
+            source,
+            source_hash,
+            __env__
+        )
+
+        # file.get_managed will retrieve the data if its a template, or if it is remote (http, ftp, sftp, s3) but
+        # somehow a remote salt:// file doesn't even count and sfn is empty in that case
+        sfn, source_sum, comment_ = __salt__['file.get_managed'](
+            name,
+            None,  # if template is None sfn is None??
+            source,
+            source_hash,
+            source_hash_name,
+            0,
+            0,
+            755,
+            None,
+            'base',
+            context,
+            defaults,
+            skip_verify=False,
+            **kwargs
+        )
+
+        # sfn only guaranteed to exist if file is remote or template.
+        # otherwise, just grab contents.
+        # Here, we implement parts of file.manage_file because we don't need to deal with the filesystem really.
+        ret = __salt__['jamf.manage_mac_profile'](
+            name,
+            sfn,
+            ret,
+            source,
+            source_sum,
+            __env__,
+            **kwargs
+        )
+    elif contents is not None:
+        ret = __salt__['jamf.manage_mac_profile'](
+            name,
+            None,
+            ret,
+            None,
+            None,
+            __env__,
+            contents=contents,
+            **kwargs
+        )
+
+    return ret
+
+
 def script(name,
            # From file.managed:
            source=None,
