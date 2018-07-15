@@ -387,6 +387,7 @@ def script(name,
             None,
             None,
             __env__,
+            contents=contents,
             **kwargs
         )
 

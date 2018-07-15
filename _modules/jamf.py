@@ -228,7 +228,20 @@ def manage_script(name,
         ``https://``, ``ftp://``) will be skipped, and the ``source_hash``
         argument will be ignored.
 
+    category:
+        The unique name of the category that this script should be assigned to.
 
+    info:
+        The script administrator information
+
+    notes:
+        Notes to display about the script
+
+    os_requirements:
+        Comma separated list of supported operating systems
+
+    parameters:
+        List of parameters starting from parameter4 through 12.
     '''
     if not ret:
         ret = {'name': name,
@@ -361,10 +374,15 @@ def manage_script(name,
                 except:
                     raise CommandExecutionError('cant save script update')
         elif contents is not None:
-            # do a simple string comparison to check for changes
-            ret['changes']['diff'] = 'needs to be a diff here'
+            if name_contents is not None:
+                # do a simple string comparison to check for changes
+                ret['changes']['diff'] = ''.join(difflib.unified_diff(name_contents, contents))
+            else:
+                ret['changes']['diff'] = contents
+
             script.add_script(contents)
             script.save()
+            ret['result'] = True
 
         if ret['changes']:
             ret['comment'] = 'Script {0} updated'.format(
