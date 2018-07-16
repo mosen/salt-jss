@@ -98,10 +98,12 @@ def manage_mac_profile(
         description=None,
         site=None,
         category=None,
-        self_service=False,
+        distribution_method='Install Automatically',
         user_removable=True,
         level='computer',
         redeploy_on_update='Newly Assigned',
+
+        scope=None,
 
         **kwargs):
     '''
@@ -154,6 +156,8 @@ def manage_mac_profile(
     level
         The scope of the profile, 'computer' or 'user'
 
+    scope
+        Ordered dict of scope options
     '''
     if not ret:
         ret = {'name': name,
@@ -164,6 +168,9 @@ def manage_mac_profile(
     # Ensure that user-provided hash string is lowercase
     if source_sum and ('hsum' in source_sum):
         source_sum['hsum'] = source_sum['hsum'].lower()
+
+    if level:
+        level = level.lower()
 
     # Cache file on minion (copy from master) if source is provided but sfn is not.
     if source:
@@ -201,7 +208,7 @@ def manage_mac_profile(
         ret['changes']['new']['category'] = category
 
     old_distribution_method, new_distribution_method = _ensure_element(profile.find('general'), 'distribution_method',
-                                                                       'Install Automatically')
+                                                                       distribution_method)
     if old_distribution_method or new_distribution_method:
         ret['changes']['old']['distribution_method'], ret['changes']['new']['distribution_method'] = \
             old_distribution_method, new_distribution_method
@@ -212,6 +219,22 @@ def manage_mac_profile(
         ret['changes']['old']['user_removable'], ret['changes']['new']['user_removable'] = \
             old_user_removable, new_user_removable
 
+    old_level, new_level = _ensure_element(profile.find('general'), 'level', level)
+    if old_level or new_level:
+        ret['changes']['old']['level'], ret['changes']['new']['level'] = old_level, new_level
+
+    # Scope
+    if scope is not None:
+        for scopeitem in scope:
+            for k, v in scopeitem.items():
+                if k == 'all_computers':
+                    pass
+                elif k == 'computer':
+                    pass
+                elif k == 'computer_group':
+                    pass
+
+
     # Payload
 
     if not is_new:  # Cannot make a hash comparison, so generate a diff of PayloadUUIDs
@@ -220,6 +243,7 @@ def manage_mac_profile(
             sfn_contents = __salt__['cp.get_file_str'](sfn)
             sfn_plist = plistlib.readPlistFromString(sfn_contents)
             sfn_payload_uuids = set([p['PayloadUUID'] for p in sfn_plist['PayloadContent']])
+
             payloads_plist = plistlib.readPlistFromString(payloads)
             existing_payload_uuids = set([p['PayloadUUID'] for p in payloads_plist['PayloadContent']])
 
@@ -228,10 +252,10 @@ def manage_mac_profile(
 
             if len(different_uuids) > 0:
                 profile.add_payloads(sfn_contents)
-                ret['changes']['diff'] = 'Updated payload'
+                ret['changes']['diff']['payload'] = 'Updated payload'
             else:
                 ret['comment'] = 'Payload identical'
-                ret['result'] = None
+                ret['result'] = True
 
     else:
         if source is not None:
