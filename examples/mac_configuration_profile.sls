@@ -1,16 +1,17 @@
-Energy Saver Policy:
+Config Profile Test:
   jamf.mac_configuration_profile:
-    - source: salt://configuration_profiles/energysaver.mobileconfig
-    - sign_with: 'Certificate Name'
+    - description: A configuration profile
+    - source: salt://configuration_profiles/example.mobileconfig
+    # - site: Name
+    - category: Testing
+    - self_service: False  # Distribution Method
+    - user_removable: True
     - level: Computer
-    - category: testing
-    - description: asdadf
-    - self_service: False
-    - targets:
-      - computer: asd
-      - computer_group: asd
-      - building: asd
-      - department: asd
-    - limitations:
-      - segment: lan
-    - exclusions:
+#    - targets:
+#      - computer: asd
+#      - computer_group: asd
+#      - building: asd
+#      - department: asd
+#    - limitations:
+#      - segment: lan
+#    - exclusions:
