@@ -48,6 +48,11 @@ def _get_jss():
     return j
 
 
+def building(name,
+             )
+
+
+
 def category(name,
              priority='9'):
     '''

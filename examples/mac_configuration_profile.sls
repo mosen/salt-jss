@@ -8,15 +8,15 @@ Config Profile Test:
     - level: computer
     - scope:
       - all_computers: False
-      - computer:
-          name: Blah
-          udid: 55900BDC-347C-58B1-D249-F32244B11D30
-      - computer:
-          name: Johns iMac
-          udid: 55900BDC-347C-58B1-D249-F32244B11D30
-      - computer_group: Test Smart Group
-      - building: Building A
-      - department: Dept B
+#      - computer:
+#          name: Blah
+#          udid: 55900BDC-347C-58B1-D249-F32244B11D30
+#      - computer:
+#          name: Johns iMac
+#          udid: 55900BDC-347C-58B1-D249-F32244B11D30
+      - computer_group: test
+#      - building: Building A
+#      - department: Dept B
 #    - limitations:
 #      - user: Someone
 #      - user_group: Blah

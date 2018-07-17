@@ -321,3 +321,101 @@ def manage_script(name,
         script.save()
         ret['result'] = True
         return ret
+
+
+def manage_computer_ea(name,
+                       sfn,
+                       ret,
+                       source,
+                       source_sum,
+                       saltenv,
+                       backup=None,
+                       template=None,
+                       show_changes=True,
+                       contents=None,
+                       skip_verify=False,
+
+                       description=None,
+                       data_type='String',
+                       input_type='Text Field',
+                       inventory_display='Extension Attributes',
+                       **kwargs):
+    '''
+    Check the destination against information retrieved by get_managed and make modifications if necessary.
+    Derived from file.manage_file
+
+    name
+        unique ea display name in jamf pro server
+
+    sfn
+        location of cached file on the minion
+
+        This is the path to the file stored on the minion. This file is placed
+        on the minion using cp.cache_file.  If the hash sum of that file
+        matches the source_sum, we do not transfer the file to the minion
+        again.
+
+        This file is then grabbed and if it has template set, it renders the
+        file to be placed into the correct place on the system using
+        salt.files.utils.copyfile()
+
+    ret
+        The initial state return data structure. Pass in ``None`` to use the
+        default structure.
+
+    source
+        file reference on the master
+
+    source_sum
+        sum hash for source
+
+    template
+        format of templating
+
+    show_changes
+        Include diff in state return
+
+    contents:
+        contents to be placed in the file
+
+    skip_verify : False
+        If ``True``, hash verification of remote file sources (``http://``,
+        ``https://``, ``ftp://``) will be skipped, and the ``source_hash``
+        argument will be ignored.
+
+    description
+        Description of the Extension Attribute
+
+    data_type
+        The data type of the extension attribute, one of: String, Integer, Date
+
+    input_type
+        The input type of the extension attribute, one of: script, Text Field, LDAP Mapping, Pop-up Menu
+
+    inventory_display
+        Where the extension attribute will be displayed, one of: General, Hardware, Operating System, User and Location,
+        Purchasing, Extension Attributes
+    '''
+    if not ret:
+        ret = {'name': name,
+               'changes': {'new': {}, 'old': {}},
+               'comment': '',
+               'result': True}
+
+    # Ensure that user-provided hash string is lowercase
+    if source_sum and ('hsum' in source_sum):
+        source_sum['hsum'] = source_sum['hsum'].lower()
+
+    if source:
+        if not sfn:
+            # File is not present, cache it
+            sfn = __salt__['cp.cache_file'](source, saltenv)
+            if not sfn:
+                raise CommandExecutionError('Source file \'{0}\' not found'.format(source))
+
+            htype = source_sum.get('hash_type', __opts__['hash_type'])
+            # Recalculate source sum now that file has been cached
+            source_sum = {
+                'hash_type': htype,
+                'hsum': __salt__['file.get_hash'](sfn, form=htype)
+            }
