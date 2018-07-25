@@ -65,7 +65,17 @@ def _get_jss():
 def _ensure_element(parent, child_name, newvalue=None):
     '''Ensure that the sub element exists and has the value newvalue.
 
-    Returns tuple of old value, new value. A value of None is returned if it never existed or has been removed.'''
+    Returns tuple of old value, new value. A value of None is returned if it never existed or has been removed.
+
+    parent
+        ElementTree.Element where the child will be added or updated
+
+    child_name
+        The tag name of the child, which is created if it does not exist
+
+    newvalue
+        The text value of the given child
+    '''
     if newvalue is not None:
         el = parent.find(child_name)
         old = None

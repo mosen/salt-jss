@@ -5,7 +5,7 @@ Example Computer EA:
     - input_type: script
     - inventory_display: Extension Attributes
     - contents: |
-      #!/bin/bash
-      echo "<result>value</result>"
-      exit 0
+        #!/bin/bash
+        echo "<result>value</result>"
+        exit 0
 

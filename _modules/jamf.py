@@ -79,7 +79,7 @@ def activation_code():
     j = _get_jss()
     try:
         activation_code = j.ActivationCode()
-    except jss.JSSGetError as e:
+    except jss.GetError as e:
         raise CommandExecutionError(
             'Unable to retrieve Activation Code, {0}'.format(e.message)
         )
@@ -90,7 +90,56 @@ def activation_code():
     }
 
 
-def list_ldap_servers():
+def computers(match=None):
+    '''
+    Retrieve all enrolled computers.
+
+    match
+        Text search which generally applies to many fields eg name, mac address, ip address...
+        An asterisk '*' must be used as a wildcard, and you should quote it in CLI usage.
+
+    .. code-block:: bash
+
+        salt-call jamf.computers
+        salt-call jamf.computers match='comp*'
+
+    '''
+    j = _get_jss()
+    try:
+        if match is not None:
+            computers = j.Computer('match={}'.format(match))
+        else:
+            computers = j.Computer()
+
+    except jss.GetError as e:
+        raise CommandExecutionError(
+            'Unable to retrieve Computers, {0}'.format(e.message)
+        )
+
+    def _generate_computer_result(c):
+        if c.find('general') is None:
+            return {
+                'id': c.id,
+                'name': c.name,
+            }
+        else:
+            return {
+                'id': c.id,
+                'name': c.name,
+                'mac_address': c.general.mac_address.text,
+                'ip_address': c.general.ip_address.text,
+                'serial_number': c.general.serial_number.text,
+                'udid': c.general.udid.text,
+            }
+
+    if len(computers) > 0:
+        result = [_generate_computer_result(c) for c in computers]
+        return result
+    else:
+        return None
+
+
+def ldap_servers():
     '''
     Retrieve a list of configured LDAP servers
 
@@ -103,7 +152,7 @@ def list_ldap_servers():
     j = _get_jss()
     try:
         ldap_servers = j.LDAPServer()
-    except jss.JSSGetError as e:
+    except jss.GetError as e:
         raise CommandExecutionError(
             'Unable to retrieve LDAP server(s), {0}'.format(e.message)
         )

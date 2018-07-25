@@ -48,9 +48,25 @@ def _get_jss():
     return j
 
 
-def building(name,
-             )
+def building(name):
+    '''Ensure that a building is present.
 
+    name
+        Name of the building
+    '''
+    j = _get_jss()
+    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
+    changes = {'old': {}, 'new': {}}
+
+    try:
+        b = j.Building(name)
+        ret['result'] = True
+        return ret
+    except jss.GetError as e:
+        b = jss.Building(j, name)
+        changes['comment'] = 'Object created'
+        changes['new']['name'] = name
+        return ret
 
 
 def category(name,
