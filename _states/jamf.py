@@ -659,6 +659,9 @@ def policy(name,
     ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
     changes = {'old': {}, 'new': {}}
 
+    basic_keys = {'enabled', 'frequency', 'location_user_only', 'target_drive', 'offline'}
+    frequencies = ['Once per computer', 'Once per user per computer', 'Once per user', 'Once every day',
+                   'Once every week', 'Once every month', 'Ongoing']
     reserved_triggers = ['startup', 'login', 'logout', 'network_state_changed', 'enrollment_complete', 'checkin']
     old_triggers = set()
 
@@ -678,6 +681,36 @@ def policy(name,
 
     except jss.GetError:
         pol = jss.Policy(j, name)
+
+    # Check Basics
+
+
+    # Check Site
+    if site is not None:
+        site_el = pol.find('general/site')
+        if site_el is not None:
+            if site_el.name.text != site:
+                changes['old']['site'] = site_el.name.text
+                site_el.clear()
+                site_name = ElementTree.SubElement(site_el, 'name')
+                site_name.text = site
+                changes['new']['site'] = site
+        else:
+            site_el = ElementTree.SubElement(pol.general, 'site')
+            site_name = ElementTree.SubElement(site_el, 'name')
+            site_name.text = site
+
+    # Check Category
+    if category is not None:
+        category_el = pol.find('general/category')  # This can never be null because of data_keys
+
+        if category_el.name.text != category:
+            changes['old']['category'] = category_el.name.text
+
+            category_el.clear()
+            category_name = ElementTree.SubElement(category_el, 'name')
+            category_name.text = category
+            changes['new']['category'] = category
 
     # Check Triggers
     if triggers is not None:
@@ -703,7 +736,6 @@ def policy(name,
                     add_trigger_el.text = 'true'
             else:
                 pol.find('general/trigger_other').text = add_trigger
-
 
 
 
