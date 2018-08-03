@@ -28,3 +28,27 @@ This is done by editing the file :file:`/etc/salt/minion`, which is YAML formatt
 	  username: admin
 	  password: p@ssw0rd
 	  ssl_verify: False
+
+
+Proxy Minion Configuration
+--------------------------
+
+:file:`/srv/pillar/top.sls`::
+
+    base:
+      jss1:
+        - jss1
+
+:file:`/srv/pillar/jss1.sls`::
+
+    proxy:
+      proxytype: jamf
+      url: https://localhost:8444/
+      username: admin
+      password: p@ssw0rd
+      ssl_verify: False
+
+Then, run the proxy minion to control this instance as::
+
+    $ salt-proxy --proxyid=jss1
+

@@ -46,6 +46,25 @@ def __virtual__():
     return __virtualname__
 
 
+def _get_jss():
+    jss_options = __salt__['config.option']('jss')
+    # jss_url = __salt__['config.option']('jss.url')
+    # jss_user = __salt__['config.option']('jss.username')
+    # jss_password = __salt__['config.option']('jss.password')
+    # jss_ssl_verify = __salt__['config.option']('jss.ssl_verify', True)
+
+    logger.debug('Using JAMF Pro URL: {}'.format(jss_options['url']))
+
+    j = jss.JSS(
+        url=jss_options['url'],
+        user=jss_options['username'],
+        password=jss_options['password'],
+        ssl_verify=jss_options['ssl_verify'],
+    )
+
+    return j
+
+
 def script(name=None, id=None):
     '''
     Retrieve a single script object from the JSS.

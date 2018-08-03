@@ -593,3 +593,122 @@ def smart_computer_group(name,
         ret['result'] = True
 
     return ret
+
+
+def policy(name,
+           enabled=True,
+           site=None,
+           category=None,
+           triggers=None,
+           frequency='Once per computer',
+           target_drive=None,
+           limitations=None,
+
+           scope=None,
+           self_service=None,
+           **kwargs):
+    '''Ensure that the given Policy is present.
+
+    The state will not create requisites for dependent objects, you will have to create your own requisites.
+
+    name
+        The unique name for the policy. This is also used to determine whether the policy already exists.
+
+    enabled
+        Whether the policy will be enabled or not
+
+    site (optional)
+        The name of an associated site.
+
+    category (optional)
+        The category that the policy will be featured in.
+
+    triggers (optional)
+        List of triggers including custom names that will trigger this policy.
+        Reserved names are:
+            - startup
+            - login
+            - logout
+            - network_state_changed
+            - enrollment_complete
+            - checkin
+
+    frequency (optional)
+        Policy frequency, may be one of:
+            - Once per computer
+            - Once per user per computer
+            - Once per user
+            - Once every day
+            - Once every week
+            - Once every month
+            - Ongoing
+
+    target_drive (optional)
+        Drive to run the policy against (defaults to the boot drive '/')
+
+    limitations (optional)
+        TBD
+
+    scope (optional)
+        TBD
+
+    self_service (optional)
+        TBD
+    '''
+    j = _get_jss()
+    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
+    changes = {'old': {}, 'new': {}}
+
+    reserved_triggers = ['startup', 'login', 'logout', 'network_state_changed', 'enrollment_complete', 'checkin']
+    old_triggers = set()
+
+    try:
+        pol = j.Policy(name)
+
+        for rtrig in reserved_triggers:
+            reserved_trigger_element = 'general/trigger_{}'.format(rtrig)
+            reserved_trigger_etree = pol.find(reserved_trigger_element)
+
+            if reserved_trigger_etree is not None:
+                if reserved_trigger_etree.text == 'true':
+                    old_triggers.add(rtrig)
+
+        if pol.find('general/trigger_other') is not None:  # Custom trigger
+            old_triggers.add(pol.findtext('general/trigger_other'))
+
+    except jss.GetError:
+        pol = jss.Policy(j, name)
+
+    # Check Triggers
+    if triggers is not None:
+        changes['old']['triggers'] = list(old_triggers)
+        triggers_remove = old_triggers - set(triggers)
+        logging.debug('Triggers to remove: %s', triggers_remove)
+        triggers_add = set(triggers) - old_triggers
+        logging.debug('Triggers to add: %s', triggers_add)
+        changes['new']['triggers'] = triggers
+
+        for remove_trigger in triggers_remove:
+            if remove_trigger in reserved_triggers:
+                remove_trigger_el = pol.find('general/trigger_{}'.format(remove_trigger))
+                if remove_trigger_el is not None and remove_trigger_el.text == 'true':
+                    remove_trigger_el.text = 'false'
+            else:
+                pol.find('general/trigger_other').text = None
+
+        for add_trigger in triggers_add:
+            if add_trigger in reserved_triggers:
+                add_trigger_el = pol.find('general/trigger_{}'.format(add_trigger))
+                if add_trigger_el is not None and add_trigger_el.text == 'false':
+                    add_trigger_el.text = 'true'
+            else:
+                pol.find('general/trigger_other').text = add_trigger
+
+
+
+
+
+    pol.save()
+    ret['result'] = True
+    ret['changes'] = changes
+    return ret
