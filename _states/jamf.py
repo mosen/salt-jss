@@ -665,6 +665,11 @@ def policy(name,
     reserved_triggers = ['startup', 'login', 'logout', 'network_state_changed', 'enrollment_complete', 'checkin']
     old_triggers = set()
 
+    if frequency is not None and frequency not in frequencies:
+        raise SaltInvocationError('Specified frequency "{}" is not a valid policy frequency, one of: {}'.format(
+            frequency, ', '.join(frequencies),
+        ))
+
     try:
         pol = j.Policy(name)
 
@@ -770,7 +775,9 @@ def policy(name,
                             raise SaltInvocationError('Invalid computer group "{}" specified in policy: {}'.format(cg, name))
 
                     for cg in to_remove:
-                        pass  # pol.findall('scope/computer_groups/computer_group')
+                        cg_match = pol.find('scope/computer_groups/computer_group/[name=\'{}\']'.format(cg))
+                        if cg_match is not None:
+                            pass
 
     pol.save()
     ret['result'] = True
