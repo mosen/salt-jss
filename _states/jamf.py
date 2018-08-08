@@ -737,8 +737,40 @@ def policy(name,
             else:
                 pol.find('general/trigger_other').text = add_trigger
 
+    # Check Scope
+    if scope is not None:
+        changes['old']['scope'] = {}
+        changes['new']['scope'] = {}
 
+        for scope_item in scope:
+            for sk, sv in scope_item.items():
+                if sk == 'all_computers':
+                    old_all_computers = pol.find('scope/all_computers')
+                    if old_all_computers is not None:
+                        all_computers = old_all_computers.text == 'true'
+                        if sv != all_computers:
+                            changes['old']['scope']['all_computers'] = all_computers
+                            old_all_computers.text = str(sv)
+                            changes['new']['scope']['all_computers'] = sv
+                elif sk == 'computer_groups':
+                    existing_computer_groups = {}
+                    for existing_computer_group in pol.findall('scope/computer_groups/computer_group'):
+                        existing_computer_groups[existing_computer_group.id.text] = existing_computer_group.name.text
 
+                    changes['old']['scope']['computer_groups'] = existing_computer_groups.values()
+                    changes['new']['scope']['computer_groups'] = []
+                    to_add = set(sv) - set(existing_computer_groups.values())
+                    to_remove = set(existing_computer_groups.values()) - set(sv)
+
+                    for cg in to_add:
+                        try:
+                            pol.add_object_to_scope(j.ComputerGroup(cg))
+                            changes['new']['scope']['computer_groups'].append(cg)
+                        except jss.GetError:
+                            raise SaltInvocationError('Invalid computer group "{}" specified in policy: {}'.format(cg, name))
+
+                    for cg in to_remove:
+                        pass  # pol.findall('scope/computer_groups/computer_group')
 
     pol.save()
     ret['result'] = True
