@@ -87,15 +87,18 @@ def category(name,
     try:
         category = j.Category(name)
 
-        current_priority = category.find('priority').text
-        if current_priority != priority:
+        current_priority = category.priority.text
+        if current_priority != str(priority):
             changes['old']['priority'] = current_priority
-            category.find('priority').text = str(priority)
+            category.priority.text = str(priority)
             changes['new']['priority'] = str(priority)
             category.save()
             ret['result'] = True
+        else:
+            ret['comment'] = 'No changes required'
+            ret['result'] = True
 
-    except jss.GetError as e:
+    except jss.GetError:
         category = jss.Category(j, name)
         priority_el = ElementTree.SubElement(category, 'priority')
         priority_el.text = str(priority)
@@ -672,18 +675,6 @@ def policy(name,
 
     try:
         pol = j.Policy(name)
-
-        for rtrig in reserved_triggers:
-            reserved_trigger_element = 'general/trigger_{}'.format(rtrig)
-            reserved_trigger_etree = pol.find(reserved_trigger_element)
-
-            if reserved_trigger_etree is not None:
-                if reserved_trigger_etree.text == 'true':
-                    old_triggers.add(rtrig)
-
-        if pol.find('general/trigger_other') is not None:  # Custom trigger
-            old_triggers.add(pol.findtext('general/trigger_other'))
-
     except jss.GetError:
         pol = jss.Policy(j, name)
 
@@ -719,28 +710,42 @@ def policy(name,
 
     # Check Triggers
     if triggers is not None:
-        changes['old']['triggers'] = list(old_triggers)
+
+        for rtrig in reserved_triggers:
+            reserved_trigger_element = 'general/trigger_{}'.format(rtrig)
+            reserved_trigger_etree = pol.find(reserved_trigger_element)
+
+            if reserved_trigger_etree is not None:
+                if reserved_trigger_etree.text == 'true':
+                    old_triggers.add(rtrig)
+
+        if pol.find('general/trigger_other') is not None:  # Custom trigger
+            old_triggers.add(pol.findtext('general/trigger_other'))
+
         triggers_remove = old_triggers - set(triggers)
         logging.debug('Triggers to remove: %s', triggers_remove)
         triggers_add = set(triggers) - old_triggers
         logging.debug('Triggers to add: %s', triggers_add)
-        changes['new']['triggers'] = triggers
 
-        for remove_trigger in triggers_remove:
-            if remove_trigger in reserved_triggers:
-                remove_trigger_el = pol.find('general/trigger_{}'.format(remove_trigger))
-                if remove_trigger_el is not None and remove_trigger_el.text == 'true':
-                    remove_trigger_el.text = 'false'
-            else:
-                pol.find('general/trigger_other').text = None
+        if len(triggers_add) > 0 or len(triggers_remove) > 0:
+            changes['old']['triggers'] = list(old_triggers)
+            changes['new']['triggers'] = triggers
 
-        for add_trigger in triggers_add:
-            if add_trigger in reserved_triggers:
-                add_trigger_el = pol.find('general/trigger_{}'.format(add_trigger))
-                if add_trigger_el is not None and add_trigger_el.text == 'false':
-                    add_trigger_el.text = 'true'
-            else:
-                pol.find('general/trigger_other').text = add_trigger
+            for remove_trigger in triggers_remove:
+                if remove_trigger in reserved_triggers:
+                    remove_trigger_el = pol.find('general/trigger_{}'.format(remove_trigger))
+                    if remove_trigger_el is not None and remove_trigger_el.text == 'true':
+                        remove_trigger_el.text = 'false'
+                else:
+                    pol.find('general/trigger_other').text = None
+
+            for add_trigger in triggers_add:
+                if add_trigger in reserved_triggers:
+                    add_trigger_el = pol.find('general/trigger_{}'.format(add_trigger))
+                    if add_trigger_el is not None and add_trigger_el.text == 'false':
+                        add_trigger_el.text = 'true'
+                else:
+                    pol.find('general/trigger_other').text = add_trigger
 
     # Check Scope
     if scope is not None:
