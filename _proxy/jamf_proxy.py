@@ -2,12 +2,12 @@
 '''
 This proxy minion is able to communicate with a single JAMF instance.
 '''
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
 
 # Import python libs
 import logging
 
-__proxyenabled__ = ['jamf']
+__proxyenabled__ = ['jamf_proxy']
 __virtualname__ = 'jamf_proxy'
 
 GRAINS_CACHE = {}
@@ -22,10 +22,12 @@ try:
     import jss
     HAS_LIBS = True
 except ImportError:
+    log.error('Failed to load required library `python-jss` for the jamf_proxy proxy module.')
     pass
 
 
 def __virtual__():
+    log.debug('jamf_proxy __virtual__() called...')
     if not HAS_LIBS:
         return (
             False,
@@ -70,5 +72,14 @@ def grains():
     Get the grains from the proxied device
     '''
     if not DETAILS.get('grains_cache', {}):
-        pass
-    return DETAILS['grains_cache']
+        DETAILS['grains_cache'] = {}
+
+    return {}
+
+
+def grains_refresh():
+    '''
+    Refresh the grains from the proxied device
+    '''
+    DETAILS['grains_cache'] = None
+    return grains()
