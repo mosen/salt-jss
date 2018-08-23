@@ -48,216 +48,6 @@ def _get_jss():
     return j
 
 
-def building(name):
-    '''Ensure that a building is present.
-
-    name
-        Name of the building
-    '''
-    j = _get_jss()
-    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
-    changes = {'old': {}, 'new': {}}
-
-    try:
-        b = j.Building(name)
-        ret['result'] = True
-        return ret
-    except jss.GetError as e:
-        b = jss.Building(j, name)
-        changes['comment'] = 'Object created'
-        changes['new']['name'] = name
-        return ret
-
-
-def category(name,
-             priority='9'):
-    '''
-    Ensure that the given category is present.
-
-    name
-        Name of the category
-
-    priority
-        Self-Service priority, default is 9
-    '''
-    j = _get_jss()
-    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
-    changes = {'old': {}, 'new': {}}
-
-    try:
-        category = j.Category(name)
-
-        current_priority = category.priority.text
-        if current_priority != str(priority):
-            changes['old']['priority'] = current_priority
-            category.priority.text = str(priority)
-            changes['new']['priority'] = str(priority)
-            category.save()
-            ret['result'] = True
-        else:
-            ret['comment'] = 'No changes required'
-            ret['result'] = True
-
-    except jss.GetError:
-        category = jss.Category(j, name)
-        priority_el = ElementTree.SubElement(category, 'priority')
-        priority_el.text = str(priority)
-        changes['new']['name'] = name
-        changes['new']['priority'] = str(priority)
-        category.save()
-        ret['result'] = True
-
-    ret['changes'] = changes
-    return ret
-
-
-def site(name):
-    '''
-    Ensure that the given site is present.
-
-    name
-        Name of the site
-    '''
-    j = _get_jss()
-    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
-    changes = {'old': {}, 'new': {}}
-
-    try:
-        site = j.Site(name)
-        ret['result'] = True
-
-    except jss.GetError as e:
-        site = jss.Site(j, name)
-        changes['new']['name'] = name
-        site.save()
-        ret['changes'] = changes
-        ret['result'] = True
-
-    return ret
-
-
-def ldap_server(name,
-                hostname,
-                port,
-                server_type,
-                authentication_type,
-                **kwargs):
-    '''
-    Ensure that the given ldap server is present.
-
-    name
-        Display name of the LDAP Server
-
-    hostname
-        The hostname to connect to
-
-    port
-        The ldap port, default is 389
-
-    server_type
-        "Active Directory", "Open Directory", "eDirectory" or "Custom"
-
-    authentication_type
-        "simple", "CRAM-MD5", "DIGEST-MD5", "none"
-
-    *Optional:*
-
-    use_ssl
-        Use LDAPS protocol
-
-
-    '''
-    j = _get_jss()
-    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
-    changes = {'old': {}, 'new': {}}
-    required_properties = ['name', 'hostname', 'port', 'authentication_type', 'server_type']
-    connection_properties = ['authentication_type', 'open_close_timeout', 'use_ssl',
-                             'search_timeout', 'referral_response', 'use_wildcards', 'connection_is_used_for']
-    kwargs['connection_is_used_for'] = 'users'  # This seems to be always static
-
-    try:
-        ldap_server = j.LDAPServer(name)
-        connection_el = ldap_server.find('connection')
-    except jss.GetError as e:
-        ldap_server = jss.LDAPServer(j, name)
-        connection_el = ElementTree.SubElement(ldap_server, 'connection')
-
-    required_values = {
-        'name': name,
-        'hostname': hostname,
-        'port': str(port),
-        'server_type': server_type,
-        'authentication_type': authentication_type
-    }
-
-    # Required properties
-    for req_prop in required_properties:
-        el = connection_el.find(req_prop)
-        if el is None:
-            el = ElementTree.SubElement(connection_el, req_prop)
-
-        old_value = el.text
-        el.text = str(required_values[req_prop])
-
-        if old_value != el.text:
-            changes['old'][req_prop] = old_value
-            changes['new'][req_prop] = required_values[req_prop]
-
-    if authentication_type != "none":
-        if 'distinguished_username' not in kwargs or 'password' not in kwargs:
-            raise SaltInvocationError(
-                'cannot specify an authentication type if you do not supply a distinguished_username and password, '
-            )
-
-        account_el = connection_el.find('account')
-        if account_el is None:
-            account_el = ElementTree.SubElement(connection_el, 'account')
-            dn_el = ElementTree.SubElement(account_el, 'distinguished_username')
-            dn_el.text = kwargs['distinguished_username']
-            pw_el = ElementTree.SubElement(account_el, 'password')
-            pw_el.text = kwargs['password']
-        else:
-            dn_el = account_el.find('distinguished_username')
-            dn_el.text = kwargs['distinguished_username']
-            # TODO
-
-    # Optional properties
-    for conn_prop in connection_properties:
-        if conn_prop not in kwargs:
-            continue  # Didnt specify something, no change can occur
-
-        el = connection_el.find(conn_prop)
-        if el is None:
-            el = ElementTree.SubElement(connection_el, conn_prop)
-
-        if el.text != kwargs[conn_prop]:
-            changes['old'][conn_prop] = connection_el.text
-            if isinstance(kwargs[conn_prop], bool):
-                el.text = 'true' if kwargs[conn_prop] else 'false'
-            else:
-                el.text = str(kwargs[conn_prop])
-            changes['new'][conn_prop] = kwargs[conn_prop]
-
-    user_mappings_args = {
-        'object_classes': '',
-        'search_base': 'search_base',
-        'search_scope': 'search_scope',
-    }
-
-    # user_mapping_args = {
-    #     'user_id': 'map_user_id',
-    #     'username': 'map_username',
-    #     'realname': 'map_realname',
-    #     'email_address'
-    # }
-
-    ldap_server.save()
-    ret['changes'] = changes
-    ret['result'] = True
-
-    return ret
-
-
 def mac_configuration_profile(name,
                               # From file.managed:
                               source=None,
@@ -598,12 +388,41 @@ def smart_computer_group(name,
     return ret
 
 
+def _ensure_xml_bool(element, desired_value):  # type: (ElementTree.Element, bool) -> Tuple[str, str]
+    '''Ensure that the given elements innertext matches the desired bool value. Return the difference as a tuple.
+    No change = None, None'''
+    if desired_value is None:  # Don't need to check for a change because the state did not specify a desired value.
+        return None, None
+    if (element.text == 'true') != desired_value:
+        old_value = element.text == 'true'
+        element.text = 'true' if desired_value else 'false'
+        return old_value, desired_value
+    else:
+        return None, None
+
+
+def _ensure_xml_str(parent, tag_name, desired_value):  # type: (ElementTree.Element, str, str) -> Tuple[str, str]
+    '''Ensure that the given tag name exists, and has the desired value as its text. Return the difference as a tuple
+    of old, new. No change = None, None'''
+    child = parent.find(tag_name)
+    if child is None:
+        child = ElementTree.SubElement(parent, tag_name)
+
+    old_value = child.text
+
+    if old_value != desired_value:
+        child.text = desired_value
+        return old_value, desired_value
+    else:
+        return None, None
+
+
 def policy(name,
-           enabled=True,
+           frequency,
+           enabled=False,
            site=None,
            category=None,
            triggers=None,
-           frequency='Once per computer',
            target_drive=None,
            limitations=None,
 
@@ -617,8 +436,18 @@ def policy(name,
     name
         The unique name for the policy. This is also used to determine whether the policy already exists.
 
+    frequency
+        Policy frequency, may be one of:
+            - Once per computer
+            - Once per user per computer
+            - Once per user
+            - Once every day
+            - Once every week
+            - Once every month
+            - Ongoing
+
     enabled
-        Whether the policy will be enabled or not
+        Whether the policy will be enabled or not (Default False)
 
     site (optional)
         The name of an associated site.
@@ -635,16 +464,6 @@ def policy(name,
             - network_state_changed
             - enrollment_complete
             - checkin
-
-    frequency (optional)
-        Policy frequency, may be one of:
-            - Once per computer
-            - Once per user per computer
-            - Once per user
-            - Once every day
-            - Once every week
-            - Once every month
-            - Ongoing
 
     target_drive (optional)
         Drive to run the policy against (defaults to the boot drive '/')
@@ -668,7 +487,7 @@ def policy(name,
     reserved_triggers = ['startup', 'login', 'logout', 'network_state_changed', 'enrollment_complete', 'checkin']
     old_triggers = set()
 
-    if frequency is not None and frequency not in frequencies:
+    if frequency not in frequencies:
         raise SaltInvocationError('Specified frequency "{}" is not a valid policy frequency, one of: {}'.format(
             frequency, ', '.join(frequencies),
         ))
@@ -680,33 +499,24 @@ def policy(name,
 
     # Check Basics
 
-
     # Check Site
+    # TODO: This does not cover removal of a site? perhaps None should be available
     if site is not None:
         site_el = pol.find('general/site')
-        if site_el is not None:
-            if site_el.name.text != site:
-                changes['old']['site'] = site_el.name.text
-                site_el.clear()
-                site_name = ElementTree.SubElement(site_el, 'name')
-                site_name.text = site
-                changes['new']['site'] = site
-        else:
+        if site_el is None:
             site_el = ElementTree.SubElement(pol.general, 'site')
-            site_name = ElementTree.SubElement(site_el, 'name')
-            site_name.text = site
+
+        oldval, newval = _ensure_xml_str(pol.general, 'name', site)
+        if newval is not None:
+            changes['old']['site'] = oldval
+            changes['new']['site'] = newval
 
     # Check Category
     if category is not None:
-        category_el = pol.find('general/category')  # This can never be null because of data_keys
-
-        if category_el.name.text != category:
-            changes['old']['category'] = category_el.name.text
-
-            category_el.clear()
-            category_name = ElementTree.SubElement(category_el, 'name')
-            category_name.text = category
-            changes['new']['category'] = category
+        oldval, newval = _ensure_xml_str(pol.general.category, 'name', category)
+        if newval is not None:
+            changes['old']['category'] = oldval
+            changes['new']['category'] = newval
 
     # Check Triggers
     if triggers is not None:

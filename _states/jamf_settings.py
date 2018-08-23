@@ -191,10 +191,10 @@ def inventory_collection(
         changes['old']['hidden_accounts'] = oldval
         changes['new']['hidden_accounts'] = newval
 
-    if services is not None and (collection_prefs.active_services.text == 'true') != services:
+    oldval, newval = _ensure_xml_bool(collection_prefs.active_services, services)
+    if newval is not None:
         changes['old']['services'] = collection_prefs.active_services.text == 'true'
         changes['new']['services'] = hidden_accounts
-        collection_prefs.active_services.text = str(services)
 
     if mobile_last_backup is not None and (collection_prefs.mobile_device_app_purchasing_info.text == 'true') != mobile_last_backup:
         changes['old']['mobile_last_backup'] = collection_prefs.mobile_device_app_purchasing_info.text == 'true'
@@ -248,4 +248,123 @@ def inventory_collection(
     return ret
 
 
+def ldap_server(name,
+                hostname,
+                port,
+                server_type,
+                authentication_type,
+                **kwargs):
+    '''
+    Ensure that the given ldap server is present.
 
+    name
+        Display name of the LDAP Server
+
+    hostname
+        The hostname to connect to
+
+    port
+        The ldap port, default is 389
+
+    server_type
+        "Active Directory", "Open Directory", "eDirectory" or "Custom"
+
+    authentication_type
+        "simple", "CRAM-MD5", "DIGEST-MD5", "none"
+
+    *Optional:*
+
+    use_ssl
+        Use LDAPS protocol
+
+
+    '''
+    j = _get_jss()
+    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
+    changes = {'old': {}, 'new': {}}
+    required_properties = ['name', 'hostname', 'port', 'authentication_type', 'server_type']
+    connection_properties = ['authentication_type', 'open_close_timeout', 'use_ssl',
+                             'search_timeout', 'referral_response', 'use_wildcards', 'connection_is_used_for']
+    kwargs['connection_is_used_for'] = 'users'  # This seems to be always static
+
+    try:
+        ldap_server = j.LDAPServer(name)
+        connection_el = ldap_server.find('connection')
+    except jss.GetError as e:
+        ldap_server = jss.LDAPServer(j, name)
+        connection_el = ElementTree.SubElement(ldap_server, 'connection')
+
+    required_values = {
+        'name': name,
+        'hostname': hostname,
+        'port': str(port),
+        'server_type': server_type,
+        'authentication_type': authentication_type
+    }
+
+    # Required properties
+    for req_prop in required_properties:
+        el = connection_el.find(req_prop)
+        if el is None:
+            el = ElementTree.SubElement(connection_el, req_prop)
+
+        old_value = el.text
+        el.text = str(required_values[req_prop])
+
+        if old_value != el.text:
+            changes['old'][req_prop] = old_value
+            changes['new'][req_prop] = required_values[req_prop]
+
+    if authentication_type != "none":
+        if 'distinguished_username' not in kwargs or 'password' not in kwargs:
+            raise SaltInvocationError(
+                'cannot specify an authentication type if you do not supply a distinguished_username and password, '
+            )
+
+        account_el = connection_el.find('account')
+        if account_el is None:
+            account_el = ElementTree.SubElement(connection_el, 'account')
+            dn_el = ElementTree.SubElement(account_el, 'distinguished_username')
+            dn_el.text = kwargs['distinguished_username']
+            pw_el = ElementTree.SubElement(account_el, 'password')
+            pw_el.text = kwargs['password']
+        else:
+            dn_el = account_el.find('distinguished_username')
+            dn_el.text = kwargs['distinguished_username']
+            # TODO
+
+    # Optional properties
+    for conn_prop in connection_properties:
+        if conn_prop not in kwargs:
+            continue  # Didnt specify something, no change can occur
+
+        el = connection_el.find(conn_prop)
+        if el is None:
+            el = ElementTree.SubElement(connection_el, conn_prop)
+
+        if el.text != kwargs[conn_prop]:
+            changes['old'][conn_prop] = connection_el.text
+            if isinstance(kwargs[conn_prop], bool):
+                el.text = 'true' if kwargs[conn_prop] else 'false'
+            else:
+                el.text = str(kwargs[conn_prop])
+            changes['new'][conn_prop] = kwargs[conn_prop]
+
+    user_mappings_args = {
+        'object_classes': '',
+        'search_base': 'search_base',
+        'search_scope': 'search_scope',
+    }
+
+    # user_mapping_args = {
+    #     'user_id': 'map_user_id',
+    #     'username': 'map_username',
+    #     'realname': 'map_realname',
+    #     'email_address'
+    # }
+
+    ldap_server.save()
+    ret['changes'] = changes
+    ret['result'] = True
+
+    return ret
