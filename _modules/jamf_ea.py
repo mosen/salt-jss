@@ -112,7 +112,7 @@ def get_computer_ea(name=None, id=None, format='dict'):
             result['script'] = ea.findtext('input_type/script')
 
         return result
-    except jss.JSSGetError as e:
+    except jss.GetError as e:
         raise CommandExecutionError(
             'Unable to retrieve computer extension attribute(s), {0}'.format(e.message)
         )

@@ -425,9 +425,19 @@ def policy(name,
            triggers=None,
            target_drive=None,
            limitations=None,
-
            scope=None,
            self_service=None,
+
+           # Policy steps
+           packages=None,
+           software_updates=None,
+           scripts=None,
+           printers=None,
+           disk_encryption=None,
+           dock_items=None,
+           local_accounts=None,
+           management_accounts=None,
+           processes=None,
            **kwargs):
     '''Ensure that the given Policy is present.
 
@@ -498,6 +508,15 @@ def policy(name,
         pol = jss.Policy(j, name)
 
     # Check Basics
+    if enabled != (pol.general.enabled.text == 'true'):
+        changes['old']['enabled'] = (pol.general.enabled.text == 'true')
+        pol.general.enabled.text = str(enabled)
+        changes['new']['enabled'] = enabled
+
+    if frequency != pol.general.frequency.text:
+        changes['old']['frequency'] = pol.general.frequency.text
+        pol.general.frequency.text = frequency
+        changes['new']['frequency'] = frequency
 
     # Check Site
     # TODO: This does not cover removal of a site? perhaps None should be available
@@ -555,6 +574,9 @@ def policy(name,
                     if add_trigger_el is not None and add_trigger_el.text == 'false':
                         add_trigger_el.text = 'true'
                 else:
+                    if pol.find('trigger_other') is None:
+                        ElementTree.SubElement(pol.general, 'trigger_other')
+
                     pol.find('general/trigger_other').text = add_trigger
 
     # Check Scope
@@ -593,6 +615,29 @@ def policy(name,
                         cg_match = pol.find('scope/computer_groups/computer_group/[name=\'{}\']'.format(cg))
                         if cg_match is not None:
                             pass
+
+    # Packages
+    if packages is not None:
+        for item in packages:
+            for pk, pv in item.items():
+                if pk == 'install':
+                    package_tags = pol.package_configuration.packages.findall('package')
+                    logger.debug(package_tags)
+                    existing_pkgs_install = set([p.name.text for p in package_tags])
+                    pkgs_install_add = set(pv) - existing_pkgs_install
+                    print(pkgs_install_add)
+                elif pk == 'distribution_point':
+                    pass
+
+    # Scripts
+    # if scripts is not None:
+    #     script_tags = pol.scripts.findall('script')
+    #     changes['old']['scripts'] = [st.name.text for st in script_tags]
+    #
+    #     for script in scripts:
+    #         script_tag = ElementTree.SubElement(pol.scripts, 'script')
+    #         name = ElementTree.SubElement(script_tag, 'name')
+    #         name.text = script
 
     pol.save()
     ret['result'] = True
