@@ -3,6 +3,7 @@
 This proxy minion is able to communicate with a single JAMF instance.
 '''
 from __future__ import absolute_import, print_function, unicode_literals
+import salt.utils.platform
 
 # Import python libs
 import logging
@@ -21,9 +22,9 @@ HAS_LIBS = False
 try:
     import jss
     HAS_LIBS = True
+    log.info('Loaded python-jss')
 except ImportError:
     log.error('Failed to load required library `python-jss` for the jamf_proxy proxy module.')
-    pass
 
 
 def __virtual__():
@@ -35,25 +36,36 @@ def __virtual__():
             'python-jss'
         )
 
-    return __virtualname__
+    if salt.utils.platform.is_proxy() and __opts__['proxy']['proxytype'] == 'jamf_proxy':
+        return __virtualname__
+
+    return False
 
 
 def init(opts):
-    log.debug('rest_sample proxy init() called...')
+    log.debug('jamf_proxy proxy init() called...')
     DETAILS['initialized'] = True
 
     # Save the REST URL
-    DETAILS['url'] = opts['proxy']['url']
+    # DETAILS['url'] = opts['proxy']['url']
 
 
-def initialized():
-    '''
-    Since grains are loaded in many different places and some of those
-    places occur before the proxy can be initialized, return whether
-    our init() function has been called
-    '''
-    return DETAILS.get('initialized', False)
-
+# def initialized():
+#     '''
+#     Since grains are loaded in many different places and some of those
+#     places occur before the proxy can be initialized, return whether
+#     our init() function has been called
+#     '''
+#     return DETAILS.get('initialized', False)
+#
+# def alive(opts):
+#     '''
+#     This function returns a flag with the connection state.
+#     It is very useful when the proxy minion establishes the communication
+#     via a channel that requires a more elaborated keep-alive mechanism, e.g.
+#     NETCONF over SSH.
+#     '''
+#     log.debug('rest_sample proxy alive() called...')
 
 def shutdown(opts):
     '''
@@ -61,25 +73,24 @@ def shutdown(opts):
     '''
     log.debug('rest_sample proxy shutdown() called...')
 
-
-def ping():
-    '''This function will check whether the JAMF Pro server API is available with the supplied creds.'''
-    pass
-
-
-def grains():
-    '''
-    Get the grains from the proxied device
-    '''
-    if not DETAILS.get('grains_cache', {}):
-        DETAILS['grains_cache'] = {}
-
-    return {}
+#
+# def ping():
+#     '''This function will check whether the JAMF Pro server API is available with the supplied creds.'''
+#     return True
 
 
-def grains_refresh():
-    '''
-    Refresh the grains from the proxied device
-    '''
-    DETAILS['grains_cache'] = None
-    return grains()
+# def grains():
+#     '''
+#     Get the grains from the proxied device
+#     '''
+#     # if not DETAILS.get('grains_cache', {}):
+#     #     DETAILS['grains_cache'] = {}
+#     return {}
+#
+#
+# def grains_refresh():
+#     '''
+#     Refresh the grains from the proxied device
+#     '''
+#     DETAILS['grains_cache'] = None
+#     return grains()
