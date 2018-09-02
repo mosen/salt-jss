@@ -1,56 +1,39 @@
-policy_unique_name:
+Testing:
+  jamf.category:
+    - priority: 9
+
+
+Testing Smart Group:
+  jamf.smart_computer_group:
+    - name: Testing
+    - criteria:
+      - Application Title:
+          is: AppCode.app
+      - Application Version:
+          is_not: 2017.1.2
+
+Test Policy:
   jamf.policy:
-    - name: Policy Name
+    - frequency: Ongoing
     - enabled: True
-    - category: Category Name
-    - self_service: False
+    - category: Testing
     - triggers:
-      - startup
-      - login
-      - logout
-      - network_state_changed
-      - enrollment_complete
-      - checkin
-      - custom: event_name
-    - frequency: once_per_computer | once_per_user etc.
-    - target_drive: /
-    - restart:
-      - logged_in: no | if_required | immediate
-      - not_logged_in: no | if_required | immediate
-    - maintenance:
-      - inventory
-      - computer_name
-      - install_cached
-      - disk_permissions
-      - fix_byhost
-      - system_caches
-      - user_caches
-      - verify_startup
-
-    # Package Section
+#        - checkin
+        - testing
+    - scope:
+        - all_computers: True
+#      - computer_groups:
+#          - Testing
     - packages:
-      - name (should auto require jamf.package with this name)
-
-
-    - software_updates:
-
-
+        - install:
+            - VLC-2.2.8.pkg
+#        - distribution_point: Cloud distribution point
     - scripts:
+#        - before:
+        - after:
+            - All Parameters Script: ["parameter4", "parameter5"]
 
-
-    - printers:
-
-
-    - disk_encryption:
-
-    - dock_items:
-
-    - local_accounts:
-
-    - management_account:
-
-    - directory_bindings:
-
-    - efi_password:
-
-    -
+    - maintenance:
+        - update_inventory: False
+        - reset_names: False
+        - install_cached: False

@@ -318,7 +318,8 @@ def smart_computer_group(name,
 
     try:  # For now, we don't even compare criteria against the existing object. Just the existence of that object.
         grp = j.ComputerGroup(name)
-        ret['result'] = None
+        ret['result'] = True
+        ret['comment'] = 'Computer Smart Group already exists'
         del ret['changes']['old']
         del ret['changes']['new']
     except jss.GetError as e:
@@ -388,258 +389,51 @@ def smart_computer_group(name,
     return ret
 
 
-def _ensure_xml_bool(element, desired_value):  # type: (ElementTree.Element, bool) -> Tuple[str, str]
-    '''Ensure that the given elements innertext matches the desired bool value. Return the difference as a tuple.
-    No change = None, None'''
-    if desired_value is None:  # Don't need to check for a change because the state did not specify a desired value.
-        return None, None
-    if (element.text == 'true') != desired_value:
-        old_value = element.text == 'true'
-        element.text = 'true' if desired_value else 'false'
-        return old_value, desired_value
-    else:
-        return None, None
+def package(name,
+            category=None,
+            filename=None,
+            info=None,
+            notes=None):
+    '''Ensure that the given package object is present.
 
-
-def _ensure_xml_str(parent, tag_name, desired_value):  # type: (ElementTree.Element, str, str) -> Tuple[str, str]
-    '''Ensure that the given tag name exists, and has the desired value as its text. Return the difference as a tuple
-    of old, new. No change = None, None'''
-    child = parent.find(tag_name)
-    if child is None:
-        child = ElementTree.SubElement(parent, tag_name)
-
-    old_value = child.text
-
-    if old_value != desired_value:
-        child.text = desired_value
-        return old_value, desired_value
-    else:
-        return None, None
-
-
-def policy(name,
-           frequency,
-           enabled=False,
-           site=None,
-           category=None,
-           triggers=None,
-           target_drive=None,
-           limitations=None,
-           scope=None,
-           self_service=None,
-
-           # Policy steps
-           packages=None,
-           software_updates=None,
-           scripts=None,
-           printers=None,
-           disk_encryption=None,
-           dock_items=None,
-           local_accounts=None,
-           management_accounts=None,
-           processes=None,
-           **kwargs):
-    '''Ensure that the given Policy is present.
-
-    The state will not create requisites for dependent objects, you will have to create your own requisites.
-
-    name
-        The unique name for the policy. This is also used to determine whether the policy already exists.
-
-    frequency
-        Policy frequency, may be one of:
-            - Once per computer
-            - Once per user per computer
-            - Once per user
-            - Once every day
-            - Once every week
-            - Once every month
-            - Ongoing
-
-    enabled
-        Whether the policy will be enabled or not (Default False)
-
-    site (optional)
-        The name of an associated site.
-
-    category (optional)
-        The category that the policy will be featured in.
-
-    triggers (optional)
-        List of triggers including custom names that will trigger this policy.
-        Reserved names are:
-            - startup
-            - login
-            - logout
-            - network_state_changed
-            - enrollment_complete
-            - checkin
-
-    target_drive (optional)
-        Drive to run the policy against (defaults to the boot drive '/')
-
-    limitations (optional)
-        TBD
-
-    scope (optional)
-        TBD
-
-    self_service (optional)
-        TBD
+    Does not upload the package.
     '''
     j = _get_jss()
-    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
-    changes = {'old': {}, 'new': {}}
-
-    basic_keys = {'enabled', 'frequency', 'location_user_only', 'target_drive', 'offline'}
-    frequencies = ['Once per computer', 'Once per user per computer', 'Once per user', 'Once every day',
-                   'Once every week', 'Once every month', 'Ongoing']
-    reserved_triggers = ['startup', 'login', 'logout', 'network_state_changed', 'enrollment_complete', 'checkin']
-    old_triggers = set()
-
-    if frequency not in frequencies:
-        raise SaltInvocationError('Specified frequency "{}" is not a valid policy frequency, one of: {}'.format(
-            frequency, ', '.join(frequencies),
-        ))
+    ret = {'name': name, 'result': False, 'changes': {'old': {}, 'new': {}}, 'comment': ''}
 
     try:
-        pol = j.Policy(name)
-    except jss.GetError:
-        pol = jss.Policy(j, name)
+        pkg = j.Package(name)
+    except jss.GetError as e:
+        pkg = jss.Package(j, name)
 
-    # Check Basics
-    if enabled != (pol.general.enabled.text == 'true'):
-        changes['old']['enabled'] = (pol.general.enabled.text == 'true')
-        pol.general.enabled.text = str(enabled)
-        changes['new']['enabled'] = enabled
+    if category is not None and category != pkg.category.text:
+        ret['changes']['old']['category'] = pkg.category.text
+        pkg.category.text = category
+        ret['changes']['new']['category'] = category
 
-    if frequency != pol.general.frequency.text:
-        changes['old']['frequency'] = pol.general.frequency.text
-        pol.general.frequency.text = frequency
-        changes['new']['frequency'] = frequency
+    if filename is not None and filename != pkg.filename.text:
+        ret['changes']['old']['filename'] = pkg.filename.text
+        pkg.filename.text = filename
+        ret['changes']['new']['filename'] = filename
 
-    # Check Site
-    # TODO: This does not cover removal of a site? perhaps None should be available
-    if site is not None:
-        site_el = pol.find('general/site')
-        if site_el is None:
-            site_el = ElementTree.SubElement(pol.general, 'site')
+    if info is not None and info != pkg.info.text:
+        ret['changes']['old']['info'] = pkg.info.text
+        pkg.info.text = info
+        ret['changes']['new']['info'] = info
 
-        oldval, newval = _ensure_xml_str(pol.general, 'name', site)
-        if newval is not None:
-            changes['old']['site'] = oldval
-            changes['new']['site'] = newval
+    if notes is not None and notes != pkg.notes.text:
+        ret['changes']['old']['notes'] = pkg.notes.text
+        pkg.notes.text = notes
+        ret['changes']['new']['notes'] = notes
 
-    # Check Category
-    if category is not None:
-        oldval, newval = _ensure_xml_str(pol.general.category, 'name', category)
-        if newval is not None:
-            changes['old']['category'] = oldval
-            changes['new']['category'] = newval
-
-    # Check Triggers
-    if triggers is not None:
-
-        for rtrig in reserved_triggers:
-            reserved_trigger_element = 'general/trigger_{}'.format(rtrig)
-            reserved_trigger_etree = pol.find(reserved_trigger_element)
-
-            if reserved_trigger_etree is not None:
-                if reserved_trigger_etree.text == 'true':
-                    old_triggers.add(rtrig)
-
-        if pol.find('general/trigger_other') is not None:  # Custom trigger
-            old_triggers.add(pol.findtext('general/trigger_other'))
-
-        triggers_remove = old_triggers - set(triggers)
-        logging.debug('Triggers to remove: %s', triggers_remove)
-        triggers_add = set(triggers) - old_triggers
-        logging.debug('Triggers to add: %s', triggers_add)
-
-        if len(triggers_add) > 0 or len(triggers_remove) > 0:
-            changes['old']['triggers'] = list(old_triggers)
-            changes['new']['triggers'] = triggers
-
-            for remove_trigger in triggers_remove:
-                if remove_trigger in reserved_triggers:
-                    remove_trigger_el = pol.find('general/trigger_{}'.format(remove_trigger))
-                    if remove_trigger_el is not None and remove_trigger_el.text == 'true':
-                        remove_trigger_el.text = 'false'
-                else:
-                    pol.find('general/trigger_other').text = None
-
-            for add_trigger in triggers_add:
-                if add_trigger in reserved_triggers:
-                    add_trigger_el = pol.find('general/trigger_{}'.format(add_trigger))
-                    if add_trigger_el is not None and add_trigger_el.text == 'false':
-                        add_trigger_el.text = 'true'
-                else:
-                    if pol.find('trigger_other') is None:
-                        ElementTree.SubElement(pol.general, 'trigger_other')
-
-                    pol.find('general/trigger_other').text = add_trigger
-
-    # Check Scope
-    if scope is not None:
-        changes['old']['scope'] = {}
-        changes['new']['scope'] = {}
-
-        for scope_item in scope:
-            for sk, sv in scope_item.items():
-                if sk == 'all_computers':
-                    old_all_computers = pol.find('scope/all_computers')
-                    if old_all_computers is not None:
-                        all_computers = old_all_computers.text == 'true'
-                        if sv != all_computers:
-                            changes['old']['scope']['all_computers'] = all_computers
-                            old_all_computers.text = str(sv)
-                            changes['new']['scope']['all_computers'] = sv
-                elif sk == 'computer_groups':
-                    existing_computer_groups = {}
-                    for existing_computer_group in pol.findall('scope/computer_groups/computer_group'):
-                        existing_computer_groups[existing_computer_group.id.text] = existing_computer_group.name.text
-
-                    changes['old']['scope']['computer_groups'] = existing_computer_groups.values()
-                    changes['new']['scope']['computer_groups'] = []
-                    to_add = set(sv) - set(existing_computer_groups.values())
-                    to_remove = set(existing_computer_groups.values()) - set(sv)
-
-                    for cg in to_add:
-                        try:
-                            pol.add_object_to_scope(j.ComputerGroup(cg))
-                            changes['new']['scope']['computer_groups'].append(cg)
-                        except jss.GetError:
-                            raise SaltInvocationError('Invalid computer group "{}" specified in policy: {}'.format(cg, name))
-
-                    for cg in to_remove:
-                        cg_match = pol.find('scope/computer_groups/computer_group/[name=\'{}\']'.format(cg))
-                        if cg_match is not None:
-                            pass
-
-    # Packages
-    if packages is not None:
-        for item in packages:
-            for pk, pv in item.items():
-                if pk == 'install':
-                    package_tags = pol.package_configuration.packages.findall('package')
-                    logger.debug(package_tags)
-                    existing_pkgs_install = set([p.name.text for p in package_tags])
-                    pkgs_install_add = set(pv) - existing_pkgs_install
-                    print(pkgs_install_add)
-                elif pk == 'distribution_point':
-                    pass
-
-    # Scripts
-    # if scripts is not None:
-    #     script_tags = pol.scripts.findall('script')
-    #     changes['old']['scripts'] = [st.name.text for st in script_tags]
-    #
-    #     for script in scripts:
-    #         script_tag = ElementTree.SubElement(pol.scripts, 'script')
-    #         name = ElementTree.SubElement(script_tag, 'name')
-    #         name.text = script
-
-    pol.save()
-    ret['result'] = True
-    ret['changes'] = changes
-    return ret
+    try:
+        pkg.save()
+        ret['comment'] = 'Package updated successfully.'
+        ret['result'] = True
+        return ret
+    except jss.PostError as e:
+        ret['comment'] = 'Failed to save Package: {0}'.format(e.message)
+        return ret
+    except jss.PutError as e:
+        ret['comment'] = 'Failed to update Package: {0}'.format(e.message)
+        return ret

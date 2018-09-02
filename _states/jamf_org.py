@@ -106,7 +106,9 @@ def category(name,
         category.save()
         ret['result'] = True
 
-    ret['changes'] = changes
+    if len(changes['new'].keys()) > 0:
+        ret['changes'] = changes
+
     return ret
 
 
