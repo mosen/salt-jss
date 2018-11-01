@@ -77,6 +77,49 @@ def _ensure_xml_str(parent, tag_name, desired_value):  # type: (ElementTree.Elem
         return None, None
 
 
+def mod_init(low):
+    '''Refresh the policy index here so that it only needs to happen once
+    :param low:
+    :return:
+    '''
+    if low['fun'] == 'policy':
+        return True
+
+    return False
+
+
+def _policy_selfservice(policy, self_service=None):
+    '''Ensure that self service configuration matches the desired state.
+
+    self_service
+        The self-service highstate, which is an object comprised of:
+            - enabled (bool): A convenience property for `use_for_self_service` enables or disables self service for the
+                policy.
+
+    :returns: Tuple of changed_old, changed_new
+    :raises: ValueError on error. Description should be appended to ret['comments']
+    '''
+    if self_service is None:
+        return None, None
+
+    changes_old = {}
+    changes_new = {}
+
+    logger.debug('self service:')
+    logger.debug(self_service)
+
+    for self_service_item in self_service:
+        for k, v in self_service_item.items():
+            if k == 'enabled':
+                enabled = (policy.self_service.use_for_self_service.text == 'true')
+                if v != enabled:
+                    changes_old['enabled'] = enabled
+                    changes_new['enabled'] = v
+                    policy.self_service.use_for_self_service.text = str(v)
+
+    return changes_old, changes_new
+
+
 def _policy_triggers(policy, triggers=None):
     '''Ensure that policy triggers match the desired state.
 
@@ -348,7 +391,8 @@ def policy(name,
         TBD
 
     self_service (optional)
-        TBD
+        An object describing Self-Service configuration
+
     '''
     j = _get_jss()
     ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
@@ -491,6 +535,18 @@ def policy(name,
     if maintenance_new is not None:
         changes['old']['maintenance'] = maintenance_old
         changes['new']['maintenance'] = maintenance_new
+
+    # Self Service
+    try:
+        ss_old, ss_new = _policy_selfservice(pol, self_service)
+    except ValueError as e:
+        ret['comment'] = 'Failed to update self service: {0}'.format(e.message)
+        ret['result'] = False
+        return ret
+
+    if ss_new is not None:
+        changes['old']['self_service'] = ss_old
+        changes['new']['self_service'] = ss_new
 
     try:
         pol.save()

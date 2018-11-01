@@ -46,6 +46,34 @@ def _get_jss():
     return j
 
 
+def _ensure_xml_str(parent, tag_name, desired_value):  # type: (ElementTree.Element, str, str) -> Tuple[str, str]
+    '''Ensure that the given tag name exists, and has the desired value as its text. Return the difference as a tuple
+    of old, new. No change = None, None'''
+    child = parent.find(tag_name)
+    if child is None:
+        child = ElementTree.SubElement(parent, tag_name)
+
+    old_value = child.text
+
+    if old_value != desired_value:
+        child.text = desired_value
+        return old_value, desired_value
+    else:
+        return None, None
+
+
+def _ensure_xml_bool(element, desired_value):  # type: (ElementTree.Element, bool) -> Tuple[str, str]
+    '''Ensure that the given elements innertext matches the desired bool value. Return the difference as a tuple.
+    No change = None, None'''
+    if desired_value is None:  # Don't need to check for a change because the state did not specify a desired value.
+        return None, None
+    if (element.text == 'true') != desired_value:
+        old_value = element.text == 'true'
+        element.text = 'true' if desired_value else 'false'
+        return old_value, desired_value
+    else:
+        return None, None
+
 
 def building(name):
     '''Ensure that a building is present.
@@ -207,6 +235,88 @@ def network_segment(
         else:
             try:
                 segment.save()
+                ret['result'] = True
+                ret['comment'] = '{0} was updated'.format(name)
+            except jss.PostError as e:
+                ret['result'] = False
+                ret['comment'] = 'Unable to save {0}, reason: {1}'.format(name, e.message)
+    else:
+        ret['comment'] = '{0} is already in the desired state'.format(name)
+        ret['result'] = True
+
+    return ret
+
+
+def distribution_point(
+        name,
+        ip_address=None,
+        is_master=None,
+        connection_type=None,
+        share_name=None,
+        read_only_username=None,
+        read_only_password=None,
+        read_write_username=None,
+        read_write_password=None
+):
+    '''
+    Ensure that the defined Distribution Point is present.
+
+    '''
+    j = _get_jss()
+    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
+    changes = {'old': {}, 'new': {}}
+
+    if connection_type not in ['SMB', 'AFP']:
+        raise SaltInvocationError('Specified connection_type "{}" is not valid, must be one of: {}'.format(
+            connection_type, ', '.join(['SMB', 'AFP']),
+        ))
+
+    try:
+        dp = j.DistributionPoint(name)
+
+    except jss.GetError:
+        dp = jss.DistributionPoint(j, name)
+
+
+    changes['old']['ip_address'], changes['new']['ip_address'] = \
+        _ensure_xml_str(dp, 'ip_address', ip_address)
+
+    if is_master is not None:
+        if not hasattr(dp, 'is_master'):
+            ElementTree.SubElement(dp, 'is_master')
+
+        if is_master != dp.is_master.text:
+            changes['old']['is_master'] = dp.is_master.text
+            changes['new']['is_master'] = str(is_master)
+            dp.is_master.text = str(is_master)
+
+    changes['old']['connection_type'], changes['new']['connection_type'] = \
+        _ensure_xml_str(dp, 'connection_type', connection_type)
+
+    changes['old']['share_name'], changes['new']['share_name'] = \
+        _ensure_xml_str(dp, 'share_name', share_name)
+
+    changes['old']['read_only_username'], changes['new']['read_only_username'] = \
+        _ensure_xml_str(dp, 'read_only_username', read_only_username)
+
+    changes['old']['read_only_password'], changes['new']['read_only_password'] = \
+        _ensure_xml_str(dp, 'read_only_password', read_only_password)
+
+    changes['old']['read_write_username'], changes['new']['read_write_username'] = \
+        _ensure_xml_str(dp, 'read_write_username', read_write_username)
+
+    changes['old']['read_write_password'], changes['new']['read_write_password'] = \
+        _ensure_xml_str(dp, 'read_write_password', read_write_password)
+
+    if len(changes['new'].keys()) > 0:
+        ret['changes'] = changes
+
+        if __opts__['test']:
+            ret['result'] = None
+            ret['comment'] = '{0} would be modified'.format(name)
+        else:
+            try:
+                dp.save()
                 ret['result'] = True
                 ret['comment'] = '{0} was updated'.format(name)
             except jss.PostError as e:

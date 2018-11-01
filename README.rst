@@ -52,3 +52,10 @@ Then, run the proxy minion to control this instance as::
 
     $ salt-proxy --proxyid=jss1
 
+
+TODO
+----
+
+- SSO Settings
+- APNS certs (requires scraping)
+- VPP Accounts
