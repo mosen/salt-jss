@@ -7,11 +7,12 @@ import salt.utils.platform
 
 # Import python libs
 import logging
+import salt.utils.http
 
-__proxyenabled__ = ['jamf_proxy']
-__virtualname__ = 'jamf_proxy'
+__proxyenabled__ = ['jamf']
+__virtualname__ = 'jamf'
 
-GRAINS_CACHE = {}
+GRAINS_CACHE = None
 DETAILS = {}
 
 log = logging.getLogger(__file__)
@@ -24,7 +25,7 @@ try:
     HAS_LIBS = True
     log.info('Loaded python-jss')
 except ImportError:
-    log.error('Failed to load required library `python-jss` for the jamf_proxy proxy module.')
+    log.error('Failed to load required library `python-jss` for the jamf proxy module.')
 
 
 def __virtual__():
@@ -36,7 +37,7 @@ def __virtual__():
             'python-jss'
         )
 
-    if salt.utils.platform.is_proxy() and __opts__['proxy']['proxytype'] == 'jamf_proxy':
+    if salt.utils.platform.is_proxy() and __opts__['proxy']['proxytype'] == 'jamf':
         return __virtualname__
 
     return False
@@ -44,11 +45,14 @@ def __virtual__():
 
 def init(opts):
     log.debug('jamf_proxy proxy init() called...')
+    DETAILS['url'] = opts['proxy']['url']
+    DETAILS['jss'] = jss.JSS(
+        url=opts['proxy']['url'],
+        user=opts['proxy']['username'],
+        password=opts['proxy']['password'],
+        ssl_verify=opts['proxy'].get('ssl_verify', True),
+    )
     DETAILS['initialized'] = True
-
-    # Save the REST URL
-    # DETAILS['url'] = opts['proxy']['url']
-
 
 # def initialized():
 #     '''
@@ -71,26 +75,49 @@ def shutdown(opts):
     '''
     For this proxy shutdown is a no-op
     '''
-    log.debug('rest_sample proxy shutdown() called...')
-
-#
-# def ping():
-#     '''This function will check whether the JAMF Pro server API is available with the supplied creds.'''
-#     return True
+    log.debug('jamf proxy shutdown() called...')
 
 
-# def grains():
-#     '''
-#     Get the grains from the proxied device
-#     '''
-#     # if not DETAILS.get('grains_cache', {}):
-#     #     DETAILS['grains_cache'] = {}
-#     return {}
-#
-#
-# def grains_refresh():
-#     '''
-#     Refresh the grains from the proxied device
-#     '''
-#     DETAILS['grains_cache'] = None
-#     return grains()
+def ping():
+    '''
+    Is the REST server up?
+    '''
+    r = salt.utils.http.query(DETAILS['url'], decode_type='json', decode=True)
+    return True
+
+
+def grains():
+    '''
+    Get the grains from the proxied device
+    '''
+    global GRAINS_CACHE
+
+    if GRAINS_CACHE is None:
+        GRAINS_CACHE = {}
+        system_info = DETAILS['jss'].uapi.SystemInformation()
+        GRAINS_CACHE['jamf_is_byod_enabled'] = system_info['isByodEnabled']
+        GRAINS_CACHE['jamf_is_cloud_deployments_enabled'] = system_info['isCloudDeploymentsEnabled']
+        GRAINS_CACHE['jamf_is_dep_account_enabled'] = system_info['isDepAccountEnabled']
+        GRAINS_CACHE['jamf_is_patch_enabled'] = system_info['isPatchEnabled']
+        GRAINS_CACHE['jamf_is_sso_saml_enabled'] = system_info['isSsoSamlEnabled']
+        GRAINS_CACHE['jamf_is_user_migration_enabled'] = system_info['isUserMigrationEnabled']
+        GRAINS_CACHE['jamf_is_vpp_token_enabled'] = system_info['isVppTokenEnabled']
+        GRAINS_CACHE['jamf_sso_saml_login_uri'] = system_info['ssoSamlLoginUri']
+
+        lobby = DETAILS['jss'].uapi.Lobby()
+        GRAINS_CACHE['jamf_version'] = lobby['version']
+
+        startup_status = DETAILS['jss'].uapi.StartupStatus()
+        GRAINS_CACHE['jamf_startup_percentage'] = startup_status['percentage']
+        GRAINS_CACHE['jamf_startup_step'] = startup_status['step']
+
+    return GRAINS_CACHE
+
+
+def grains_refresh():
+    '''
+    Refresh the grains from the proxied device
+    '''
+    log.debug('Refreshing jamf proxy grains')
+    GRAINS_CACHE = None
+    return grains()

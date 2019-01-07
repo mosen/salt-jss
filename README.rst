@@ -52,6 +52,8 @@ Then, run the proxy minion to control this instance as::
 
     $ salt-proxy --proxyid=jss1
 
+.. note:: The proxy minion will load its config from ``/etc/salt/proxy`` and not ``/etc/salt/minion``.
+
 
 TODO
 ----
