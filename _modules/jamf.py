@@ -44,6 +44,12 @@ def __virtual__():
             'python-jss'
         )
 
+    if salt.utils.platform.is_proxy():
+        return (
+            False,
+            'This module is designed for local execution'
+        )
+
     return __virtualname__
 
 

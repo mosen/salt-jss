@@ -54,22 +54,15 @@ def init(opts):
     )
     DETAILS['initialized'] = True
 
-# def initialized():
-#     '''
-#     Since grains are loaded in many different places and some of those
-#     places occur before the proxy can be initialized, return whether
-#     our init() function has been called
-#     '''
-#     return DETAILS.get('initialized', False)
-#
-# def alive(opts):
-#     '''
-#     This function returns a flag with the connection state.
-#     It is very useful when the proxy minion establishes the communication
-#     via a channel that requires a more elaborated keep-alive mechanism, e.g.
-#     NETCONF over SSH.
-#     '''
-#     log.debug('rest_sample proxy alive() called...')
+
+def initialized():
+    '''
+    Since grains are loaded in many different places and some of those
+    places occur before the proxy can be initialized, return whether
+    our init() function has been called
+    '''
+    return DETAILS.get('initialized', False)
+
 
 def shutdown(opts):
     '''
@@ -118,6 +111,15 @@ def grains_refresh():
     '''
     Refresh the grains from the proxied device
     '''
+    global GRAINS_CACHE
+
     log.debug('Refreshing jamf proxy grains')
     GRAINS_CACHE = None
     return grains()
+
+
+def get_details():
+    '''Return information about the configuration of this proxy minion.'''
+    global DETAILS
+
+    return DETAILS
