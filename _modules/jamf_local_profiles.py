@@ -23,12 +23,6 @@ from salt.exceptions import (
 # can't use get_hash because it only operates on files, not buffers/bytes
 from salt.utils.hashutils import md5_digest, sha256_digest, sha512_digest
 
-# Py2-3 compatible plistlib
-if hasattr(plistlib, 'readPlistFromString'):
-    loads = plistlib.readPlistFromString
-else:
-    loads = plistlib.loads
-
 
 # python-jss
 HAS_LIBS = False
@@ -39,7 +33,7 @@ try:
 except ImportError:
     pass
 
-__virtualname__ = 'jamf_profiles'
+__virtualname__ = 'jamf_local_profiles'
 
 logger = logging.getLogger(__name__)
 
@@ -54,20 +48,19 @@ def __virtual__():
 
     return __virtualname__
 
-
 def _get_jss():
-    proxy = __pillar__['proxy']
-    logger.debug('Using JAMF Pro URL: {}'.format(proxy['url']))
+    jss_options = __salt__['config.option']('jss')
+
+    logger.debug('Using JAMF Pro URL: {}'.format(jss_options['url']))
 
     j = jss.JSS(
-        url=proxy['url'],
-        user=proxy['username'],
-        password=proxy['password'],
-        ssl_verify=proxy.get('ssl_verify'),
+        url=jss_options['url'],
+        user=jss_options['username'],
+        password=jss_options['password'],
+        ssl_verify=jss_options['ssl_verify'],
     )
 
     return j
-
 
 def _ensure_element(parent, child_name, newvalue=None):
     '''Ensure that the sub element exists and has the value newvalue.
@@ -258,10 +251,10 @@ def manage_mac_profile(
         payloads = profile.findtext('general/payloads')
         if payloads is not None and source is not None:
             sfn_contents = __salt__['cp.get_file_str'](sfn)
-            sfn_plist = loads(sfn_contents)
+            sfn_plist = plistlib.readPlistFromString(sfn_contents)
             sfn_payload_uuids = set([p['PayloadUUID'] for p in sfn_plist['PayloadContent']])
 
-            payloads_plist = loads(payloads)
+            payloads_plist = plistlib.readPlistFromString(payloads)
             existing_payload_uuids = set([p['PayloadUUID'] for p in payloads_plist['PayloadContent']])
 
             different_uuids = sfn_payload_uuids.difference(existing_payload_uuids)

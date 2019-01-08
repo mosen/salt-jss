@@ -1,23 +1,12 @@
-# -*- coding: utf-8 -*-
-'''
-Manage JAMF Pro Instances.
-
-Dependencies
-============
-
-- python-jss (testing branch currently).
-
-'''
+# Import Python libs
 from __future__ import absolute_import, print_function, unicode_literals
 import logging
+import salt.utils
 from xml.etree import ElementTree
-
 from salt.exceptions import (
     CommandExecutionError, MinionError, SaltInvocationError
 )
-import salt.utils.platform
-
-logger = logging.getLogger(__name__)
+from xml.sax.saxutils import escape
 
 # python-jss
 HAS_LIBS = False
@@ -28,11 +17,12 @@ try:
 except ImportError:
     pass
 
-__virtualname__ = 'jamf'
+__virtualname__ = 'jamf_local'
+
+logger = logging.getLogger(__name__)
 
 
 def __virtual__():
-    '''This module only works using proxy minions.'''
     if not HAS_LIBS:
         return (
             False,
@@ -40,21 +30,19 @@ def __virtual__():
             'python-jss'
         )
 
-    if salt.utils.platform.is_proxy():
-        return __virtualname__
-    return (False, 'The jamf_proxy execution module failed to load: '
-                   'only available on proxy minions.')
+    return __virtualname__
 
 
 def _get_jss():
-    proxy = __pillar__['proxy']
-    logger.debug('Using JAMF Pro URL: {}'.format(proxy['url']))
+    jss_options = __salt__['config.option']('jss')
+
+    logger.debug('Using JAMF Pro URL: {}'.format(jss_options['url']))
 
     j = jss.JSS(
-        url=proxy['url'],
-        user=proxy['username'],
-        password=proxy['password'],
-        ssl_verify=proxy.get('ssl_verify'),
+        url=jss_options['url'],
+        user=jss_options['username'],
+        password=jss_options['password'],
+        ssl_verify=jss_options['ssl_verify'],
     )
 
     return j
@@ -449,4 +437,3 @@ def package(name,
     except jss.PutError as e:
         ret['comment'] = 'Failed to update Package: {0}'.format(e.message)
         return ret
-

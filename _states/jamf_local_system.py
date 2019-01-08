@@ -17,7 +17,7 @@ try:
 except ImportError:
     pass
 
-__virtualname__ = 'jamf_system'
+__virtualname__ = 'jamf_local_system'
 
 logger = logging.getLogger(__name__)
 
