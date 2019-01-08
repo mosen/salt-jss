@@ -53,7 +53,7 @@ def _get_jss():
 
     return j
 
-
+# UAPI Methods
 
 def alerts():
     '''Retrieve a list of Alert Notifications from the JAMF Pro Server.
@@ -278,3 +278,109 @@ def vpp_subscriptions():
 
     return [dict(sub) for sub in subs]
 
+# Classic API Methods
+
+def account(id=None, username=None):
+    '''Retrieve a single JAMF Pro user account from the JAMF Pro Server.
+
+    You can use either the id or username to find an account.
+
+    id
+        The account ID of the user to find
+    name
+        The account username of the user to find.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' jamf.account id=1
+        salt '*' jamf.account name=admin
+    '''
+    j = _get_jss()
+
+    if id is not None:
+        account = j.Account(id)
+    elif username is not None:
+        account = j.Account(username)
+    else:
+        raise CommandExecutionError(
+            'Did not supply either `id` or `name` to query for.'
+        )
+
+
+def accounts():
+    '''Retrieve a list of JSS Console User Accounts from the JAMF Pro Server.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' jamf.accounts
+    '''
+    j = _get_jss()
+    accounts = j.Account()
+
+    def user(obj):
+        return {
+            'id': obj.id.text,
+            'name': obj.name.text,
+        }
+
+    # python-jss already queries the sub-element of `users` for us.
+    return [user(obj) for obj in accounts]
+
+
+def activation_code():
+    '''Retrieve the activation details from the JAMF Pro Server.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' jamf.activation_code
+    '''
+    j = _get_jss()
+    activation = j.ActivationCode()
+
+    result = {
+        'activation_code': activation.code.text,
+        'organization': activation.organization_name.text,
+    }
+
+    return result
+
+
+# def computers():
+#     '''Retrieve a list of computers from the JAMF Pro Server'''
+#     j = _get_jss()
+#     computers = j.Computer()
+#
+#     def result(o):
+#         return {
+#             ''
+#         }
+#
+#     return [result(obj) for obj in computers]
+
+def mobiledevice_commands():
+    '''Retrieve a list of MDM Commands sent to Mobile Devices from the JAMF Pro Server.
+
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' jamf.mobiledevice_commands
+    '''
+    j = _get_jss()
+    commands = j.MobileDeviceCommand()
+
+    def result(o):
+        return {
+            'id': o.id,
+            # 'udid': o.udid.text,
+            'command': o.command.text,
+        }
+
+    return [result(obj) for obj in commands]
