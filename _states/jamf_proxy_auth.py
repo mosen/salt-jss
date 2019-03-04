@@ -390,6 +390,8 @@ def sso_settings(name,
 
         return ret
     else:
+        logger.debug(dict(sso))
+
         try:
             sso.save()
         except jss.PutError as e:
