@@ -276,7 +276,7 @@ def script(name,
         # sfn only guaranteed to exist if file is remote or template.
         # otherwise, just grab contents.
         # Here, we implement parts of file.manage_file because we don't need to deal with the filesystem really.
-        ret = __salt__['jamf_scripts.manage_script'](
+        ret = __salt__['jamf.manage_script'](
             name,
             sfn,
             ret,
@@ -286,7 +286,7 @@ def script(name,
             **kwargs
         )
     elif contents is not None:
-        ret = __salt__['jamf_scripts.manage_script'](
+        ret = __salt__['jamf.manage_script'](
             name,
             None,
             ret,

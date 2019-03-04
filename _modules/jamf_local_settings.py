@@ -20,6 +20,7 @@ import salt.utils.data
 from salt.exceptions import (
     CommandExecutionError, MinionError, SaltInvocationError
 )
+import salt.utils.platform
 
 # python-jss
 HAS_LIBS = False
@@ -40,6 +41,12 @@ def __virtual__():
             False,
             'The following dependencies are required to use the jamf modules: '
             'python-jss'
+        )
+
+    if salt.utils.platform.is_proxy():
+        return (
+            False,
+            'jamf_local modules are not designed to run on proxy minions.'
         )
 
     return __virtualname__
