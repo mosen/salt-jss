@@ -54,6 +54,15 @@ Then, run the proxy minion to control this instance as::
 
 .. note:: The proxy minion will load its config from ``/etc/salt/proxy`` and not ``/etc/salt/minion``.
 
+Troubleshooting
+---------------
+
+If you receive the error:
+
+	Proxymodule jamf_proxy is missing an init() or a shutdown() or both. Check your proxymodule.  Salt-proxy aborted.
+
+It may be due to the fact that salt-jss cannot be located by your minion OR proxy minion. Check either ``/etc/salt/minion``
+or ``/etc/salt/proxy`` to make sure that salt-jss is accessible in your file_roots.
 
 TODO
 ----
