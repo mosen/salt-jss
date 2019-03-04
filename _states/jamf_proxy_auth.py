@@ -148,3 +148,72 @@ def ldap_server(name,
     ret['result'] = True
 
     return ret
+
+
+def account(name,
+            **kwargs
+    ):
+    '''
+    Ensure that the specified JSS Account is present on the server.
+
+    TODO: Individual privileges are omitted for now.
+
+    name
+        The account name, which is unique to this JAMF Pro Server.
+
+    full_name
+        The users full name, used in display fields.
+
+    email
+        The users e-mail address.
+
+    force_password_change
+        Force a password change on next login.
+
+    access_level
+        Access level to give to this user, one of: 'Full Access', 'Site Access', 'Group Access'. Default is Full Access.
+    '''
+    j = _get_jss()
+    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
+    changes = {'old': {}, 'new': {}}
+    created = False
+
+    access_levels = ['Full Access', 'Site Access', 'Group Access']
+    privilege_sets = ['Administrator', 'Auditor', 'Enrollment Only', 'Custom']
+
+    optional_properties = ['full_name', 'email']
+
+    try:
+        jss_account = j.Account(name)
+        account_el = jss_account.find('account')
+    except jss.GetError as e:
+        jss_account = jss.Account(j, name)
+        account_el = ElementTree.SubElement(jss_account, 'account')
+        changes['new']['name'] = name
+        created = True
+
+    if 'access_level' in kwargs:
+        pass
+
+    for p in optional_properties:
+        if p not in kwargs:
+            continue
+
+        el = account_el.find(p)
+        if el is None:
+            el = ElementTree.SubElement(account_el, p)
+
+        if el.text != kwargs[p]:
+            changes['old'] = account_el.text
+            el.text = kwargs[p]
+            changes['new'] = kwargs[p]
+
+    jss_account.save()
+
+    if created:
+        changes['new']['id'] = jss_account.findtext('id')
+
+    ret['changes'] = changes
+    ret['result'] = True
+
+    return ret

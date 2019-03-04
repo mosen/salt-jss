@@ -20,12 +20,6 @@ import salt.utils.data
 from salt.exceptions import (
     CommandExecutionError, MinionError, SaltInvocationError
 )
-import salt.utils.platform
-
-logger = logging.getLogger(__name__)
-
-__proxyenabled__ = ['jamf']
-__virtualname__ = 'jamf'
 
 # python-jss
 HAS_LIBS = False
@@ -35,33 +29,35 @@ try:
 except ImportError:
     pass
 
+__virtualname__ = 'jamf_settings'
+
+logger = logging.getLogger(__name__)
+
 
 def __virtual__():
-    '''
-    Only work on proxy
-    '''
     if not HAS_LIBS:
         return (
             False,
-            'The following dependencies are required to use the jss modules: '
+            'The following dependencies are required to use the jamf modules: '
             'python-jss'
         )
 
-    if salt.utils.platform.is_proxy():
-        return __virtualname__
-    return (False, 'The jamf_proxy execution module failed to load: '
-                   'only available on proxy minions.')
-
+    return __virtualname__
 
 def _get_jss():
-    proxy = __pillar__['proxy']
-    logger.debug('Using JAMF Pro URL: {}'.format(proxy['url']))
+    jss_options = __salt__['config.option']('jss')
+    # jss_url = __salt__['config.option']('jss.url')
+    # jss_user = __salt__['config.option']('jss.username')
+    # jss_password = __salt__['config.option']('jss.password')
+    # jss_ssl_verify = __salt__['config.option']('jss.ssl_verify', True)
+
+    logger.debug('Using JAMF Pro URL: {}'.format(jss_options['url']))
 
     j = jss.JSS(
-        url=proxy['url'],
-        user=proxy['username'],
-        password=proxy['password'],
-        ssl_verify=proxy.get('ssl_verify'),
+        url=jss_options['url'],
+        user=jss_options['username'],
+        password=jss_options['password'],
+        ssl_verify=jss_options['ssl_verify'],
     )
 
     return j
