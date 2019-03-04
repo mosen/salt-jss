@@ -54,6 +54,17 @@ Then, run the proxy minion to control this instance as::
 
 .. note:: The proxy minion will load its config from ``/etc/salt/proxy`` and not ``/etc/salt/minion``.
 
+Execution Modules
+-----------------
+
+- ``jamf.alerts``: List alerts
+- ``jamf.cache_settings``: Read cache settings.
+- ``jamf.mobile_devices``: List mobile devices.
+- ``jamf.selfservice_settings``: Read self-service settings.
+- ``jamf.accounts``: List JSS Accounts
+- ``jamf.activation_code``: Read registered org and activation code.
+- ``jamf.mobiledevice_commands``: List mobile device commands.
+
 Troubleshooting
 ---------------
 
@@ -70,3 +81,9 @@ TODO
 - SSO Settings
 - APNS certs (requires scraping)
 - VPP Accounts
+
+Proxy State Checklist
+---------------------
+
+- Make sure you import `salt.utils.platform` so that you can detect whether the minion is a proxy with `salt.utils.platform.is_proxy()`.
+- Always source configuration from `__pillar__['proxy']` instead of salt.config.

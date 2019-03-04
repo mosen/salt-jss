@@ -95,7 +95,7 @@ def grains():
         GRAINS_CACHE['jamf_is_sso_saml_enabled'] = system_info['isSsoSamlEnabled']
         GRAINS_CACHE['jamf_is_user_migration_enabled'] = system_info['isUserMigrationEnabled']
         GRAINS_CACHE['jamf_is_vpp_token_enabled'] = system_info['isVppTokenEnabled']
-        GRAINS_CACHE['jamf_sso_saml_login_uri'] = system_info['ssoSamlLoginUri']
+        GRAINS_CACHE['jamf_sso_saml_login_uri'] = system_info.get('ssoSamlLoginUri', None)  # This can be undefined
 
         lobby = DETAILS['jss'].uapi.Lobby()
         GRAINS_CACHE['jamf_version'] = lobby['version']

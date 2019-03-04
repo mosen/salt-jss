@@ -1,6 +1,7 @@
 # Import Python libs
 from __future__ import absolute_import, print_function, unicode_literals
 import logging
+from xml.etree import ElementTree
 
 # Import Salt libs
 from salt.exceptions import (
@@ -99,79 +100,79 @@ def cache_settings():
     return dict(settings)
 
 
-def categories():
-    '''Retrieve a list of Categories from the JAMF Pro Server.
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt '*' jamf.categories
-    '''
-    j = _get_jss()
-    categories = j.uapi.Category()
-
-    return [dict(cat) for cat in categories]
-
-
-def checkin_settings():
-    '''Retrieve client check-in settings from the JAMF Pro Server.
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt '*' jamf.checkin_settings
-    '''
-    j = _get_jss()
-    settings = j.uapi.ClientCheckIn()
-    return dict(settings)
+# def categories():
+#     '''Retrieve a list of Categories from the JAMF Pro Server.
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.categories
+#     '''
+#     j = _get_jss()
+#     categories = j.uapi.Category()
+#
+#     return [dict(cat) for cat in categories]
 
 
-def departments():
-    '''Retrieve departments from the JAMF Pro Server.
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt '*' jamf.departments
-    '''
-    j = _get_jss()
-    departments = j.uapi.Department()
-
-    return [dict(dept) for dept in departments]
-
-
-def enrollment_history():
-    '''Retrieve enrollment history from the JAMF Pro Server.
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt '*' jamf.enrollment_history
-    '''
-    j = _get_jss()
-    history = j.uapi.EnrollmentHistory()
-
-    return [dict(item) for item in history]
+# def checkin_settings():
+#     '''Retrieve client check-in settings from the JAMF Pro Server.
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.checkin_settings
+#     '''
+#     j = _get_jss()
+#     settings = j.uapi.ClientCheckIn()
+#     return dict(settings)
 
 
-def enrollment_settings():
-    '''Retrieve enrollment settings from the JAMF Pro Server.
+# def departments():
+#     '''Retrieve departments from the JAMF Pro Server.
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.departments
+#     '''
+#     j = _get_jss()
+#     departments = j.uapi.Department()
+#
+#     return [dict(dept) for dept in departments]
 
 
-    CLI Example:
+# def enrollment_history():
+#     '''Retrieve enrollment history from the JAMF Pro Server.
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.enrollment_history
+#     '''
+#     j = _get_jss()
+#     history = j.uapi.EnrollmentHistory()
+#
+#     return [dict(item) for item in history]
 
-    .. code-block:: bash
 
-        salt '*' jamf.enrollment_settings
-    '''
-    j = _get_jss()
-    settings = j.uapi.EnrollmentSetting()
-
-    return dict(settings)
+# def enrollment_settings():
+#     '''Retrieve enrollment settings from the JAMF Pro Server.
+#
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.enrollment_settings
+#     '''
+#     j = _get_jss()
+#     settings = j.uapi.EnrollmentSetting()
+#
+#     return dict(settings)
 
 
 def mobile_devices():
@@ -189,19 +190,19 @@ def mobile_devices():
     return [dict(device) for device in devices]
 
 
-def scripts():
-    '''Retrieve scripts from the JAMF Pro Server.
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt '*' jamf.scripts
-    '''
-    j = _get_jss()
-    scripts = j.uapi.Script()
-
-    return [dict(script) for script in scripts]
+# def scripts():
+#     '''Retrieve scripts from the JAMF Pro Server.
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.scripts
+#     '''
+#     j = _get_jss()
+#     scripts = j.uapi.Script()
+#
+#     return [dict(script) for script in scripts]
 
 
 def selfservice_settings():
@@ -219,64 +220,64 @@ def selfservice_settings():
     return dict(settings)
 
 
-def sites():
-    '''Retrieve sites from the JAMF Pro Server.
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt '*' jamf.selfservice_settings
-    '''
-    j = _get_jss()
-    sites = j.uapi.Site()
-
-    return [dict(site) for site in sites]
-
-
-def users():
-    '''Retrieve users from the JAMF Pro Server.
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt '*' jamf.users
-    '''
-    j = _get_jss()
-    users = j.uapi.User()
-
-    return [dict(user) for user in users]
+# def sites():
+#     '''Retrieve sites from the JAMF Pro Server.
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.selfservice_settings
+#     '''
+#     j = _get_jss()
+#     sites = j.uapi.Site()
+#
+#     return [dict(site) for site in sites]
 
 
-def vpp_accounts():
-    '''Retrieve a list of VPP accounts from the JAMF Pro Server.
+# def users():
+#     '''Retrieve users from the JAMF Pro Server.
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.users
+#     '''
+#     j = _get_jss()
+#     users = j.uapi.User()
+#
+#     return [dict(user) for user in users]
 
-    CLI Example:
 
-    .. code-block:: bash
+# def vpp_accounts():
+#     '''Retrieve a list of VPP accounts from the JAMF Pro Server.
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.vpp_accounts
+#     '''
+#     j = _get_jss()
+#     admins = j.uapi.VPPAdminAccount()
+#
+#     return [dict(admin) for admin in admins]
 
-        salt '*' jamf.vpp_accounts
-    '''
-    j = _get_jss()
-    admins = j.uapi.VPPAdminAccount()
 
-    return [dict(admin) for admin in admins]
-
-
-def vpp_subscriptions():
-    '''Retrieve a list of VPP subscriptions from the JAMF Pro Server.
-
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt '*' jamf.vpp_subscriptions
-    '''
-    j = _get_jss()
-    subs = j.uapi.VPPSubscription()
-
-    return [dict(sub) for sub in subs]
+# def vpp_subscriptions():
+#     '''Retrieve a list of VPP subscriptions from the JAMF Pro Server.
+#
+#     CLI Example:
+#
+#     .. code-block:: bash
+#
+#         salt '*' jamf.vpp_subscriptions
+#     '''
+#     j = _get_jss()
+#     subs = j.uapi.VPPSubscription()
+#
+#     return [dict(sub) for sub in subs]
 
 # Classic API Methods
 
@@ -351,17 +352,29 @@ def activation_code():
     return result
 
 
-# def computers():
-#     '''Retrieve a list of computers from the JAMF Pro Server'''
-#     j = _get_jss()
-#     computers = j.Computer()
-#
-#     def result(o):
-#         return {
-#             ''
-#         }
-#
-#     return [result(obj) for obj in computers]
+def _computer_general(element):
+    # type: (ElementTree.Element) -> dict
+    '''Convert an ElementTree.Element representing the `general` section of the computer object into a dict.'''
+    general = element.find('general')
+    props = ['name', 'ip_address', 'serial_number', 'jamf_version', 'report_date', 'mac_address', 'udid', 'mdm_capable']
+
+    return {k: general.findtext(k) for k in props}
+
+
+def computers():
+    '''Retrieve a list of computers from the JAMF Pro Server'''
+    j = _get_jss()
+    computers = j.Computer()
+
+    def result(o):  # type: (ElementTree.Element) -> dict
+        logger.debug(o)
+        computer = {}
+        computer.update(_computer_general(o))
+
+        return computer
+
+    return [result(obj) for obj in computers]
+
 
 def mobiledevice_commands():
     '''Retrieve a list of MDM Commands sent to Mobile Devices from the JAMF Pro Server.
