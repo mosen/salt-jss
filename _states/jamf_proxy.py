@@ -405,7 +405,8 @@ def package(name,
             category=None,
             filename=None,
             info=None,
-            notes=None):
+            notes=None,
+            **kwargs):
     '''Ensure that the given package object is present.
 
     Does not upload the package.
