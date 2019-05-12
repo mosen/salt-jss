@@ -33,6 +33,9 @@ def __virtual__():
                    'only available on proxy minions.')
 
 
+logger = logging.getLogger(__name__)
+
+
 def _get_jss():
     proxy = __pillar__['proxy']
     logger.debug('Using JAMF Pro URL: {}'.format(proxy['url']))
@@ -94,7 +97,7 @@ def enrollment_settings(
         Sign the QuickAdd package
 
     '''
-    current_settings = __salt__['jamf_settings.get_enrollment']()
+    current_settings = __salt__['jamf.get_enrollment']()
     new_settings = {
         'managementPassword': u'\uffff\uffff\uffff\uffff\uffff\uffff\uffff\uffff\uffff\uffff\uffff\uffff\uffff\uffff\uffff'}
     ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
@@ -168,7 +171,7 @@ def inventory_collection(
         Collect plugin information
 
     '''
-    collection_prefs = __salt__['jamf_settings.get_inventory_collection'](as_object=True)
+    collection_prefs = __salt__['jamf.get_inventory_collection'](as_object=True)
     ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
     changes = {'old': {}, 'new': {}}
 

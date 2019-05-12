@@ -111,3 +111,18 @@ def get_inventory_collection(as_object=False):
         return settings
     else:
         return str(settings)
+
+
+def get_self_service():
+    '''
+    Get the current self-service settings.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' jamf_settings.get_self_service
+    '''
+    j = _get_jss()
+    settings = j.SelfServiceSettings()
+    return dict(settings)
