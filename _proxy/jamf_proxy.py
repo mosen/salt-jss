@@ -87,22 +87,31 @@ def grains():
 
     if GRAINS_CACHE is None:
         GRAINS_CACHE = {}
-        system_info = DETAILS['jss'].uapi.SystemInformation()
-        GRAINS_CACHE['jamf_is_byod_enabled'] = system_info['isByodEnabled']
-        GRAINS_CACHE['jamf_is_cloud_deployments_enabled'] = system_info['isCloudDeploymentsEnabled']
-        GRAINS_CACHE['jamf_is_dep_account_enabled'] = system_info['isDepAccountEnabled']
-        GRAINS_CACHE['jamf_is_patch_enabled'] = system_info['isPatchEnabled']
-        GRAINS_CACHE['jamf_is_sso_saml_enabled'] = system_info['isSsoSamlEnabled']
-        GRAINS_CACHE['jamf_is_user_migration_enabled'] = system_info['isUserMigrationEnabled']
-        GRAINS_CACHE['jamf_is_vpp_token_enabled'] = system_info['isVppTokenEnabled']
-        GRAINS_CACHE['jamf_sso_saml_login_uri'] = system_info.get('ssoSamlLoginUri', None)  # This can be undefined
+        health = salt.utils.http.query("{}healthCheck.html".format(DETAILS['url']), decode_type='json', decode=True)
+        setup_complete = (len(health) == 0)
+        GRAINS_CACHE['jamf_setup_complete'] = setup_complete
 
-        lobby = DETAILS['jss'].uapi.Lobby()
-        GRAINS_CACHE['jamf_version'] = lobby['version']
+        if not setup_complete:
+            status = health[0]
+            GRAINS_CACHE['jamf_setup_health_code'] = status['healthCode']
+            GRAINS_CACHE['jamf_setup_description'] = status['description']
+        else:
+            system_info = DETAILS['jss'].uapi.SystemInformation()
+            GRAINS_CACHE['jamf_is_byod_enabled'] = system_info['isByodEnabled']
+            GRAINS_CACHE['jamf_is_cloud_deployments_enabled'] = system_info['isCloudDeploymentsEnabled']
+            GRAINS_CACHE['jamf_is_dep_account_enabled'] = system_info['isDepAccountEnabled']
+            GRAINS_CACHE['jamf_is_patch_enabled'] = system_info['isPatchEnabled']
+            GRAINS_CACHE['jamf_is_sso_saml_enabled'] = system_info['isSsoSamlEnabled']
+            GRAINS_CACHE['jamf_is_user_migration_enabled'] = system_info['isUserMigrationEnabled']
+            GRAINS_CACHE['jamf_is_vpp_token_enabled'] = system_info['isVppTokenEnabled']
+            GRAINS_CACHE['jamf_sso_saml_login_uri'] = system_info.get('ssoSamlLoginUri', None)  # This can be undefined
 
-        startup_status = DETAILS['jss'].uapi.StartupStatus()
-        GRAINS_CACHE['jamf_startup_percentage'] = startup_status['percentage']
-        GRAINS_CACHE['jamf_startup_step'] = startup_status['step']
+            lobby = DETAILS['jss'].uapi.Lobby()
+            GRAINS_CACHE['jamf_version'] = lobby['version']
+
+            startup_status = DETAILS['jss'].uapi.StartupStatus()
+            GRAINS_CACHE['jamf_startup_percentage'] = startup_status['percentage']
+            GRAINS_CACHE['jamf_startup_step'] = startup_status['step']
 
     return GRAINS_CACHE
 
