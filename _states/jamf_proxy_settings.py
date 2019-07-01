@@ -11,7 +11,7 @@ import salt.utils.platform
 HAS_LIBS = False
 try:
     import jss
-    from jss import jssobjects
+    from jss import jssobjects, uapiobjects
     HAS_LIBS = True
 except ImportError:
     pass
@@ -251,3 +251,46 @@ def inventory_collection(
 
     return ret
 
+
+def initialized(
+    name,
+    activation_code,
+    username,
+    password,
+    email,
+    is_eula_accepted=True,
+):
+    """Initialise the system"""
+    ret = {'name': name, 'result': False, 'changes': {}, 'comment': ''}
+    changes = {'old': {}, 'new': {}}
+
+    jamf_setup_complete = __salt__['grains.item']('jamf_setup_complete').get('jamf_setup_complete', None)
+
+    if jamf_setup_complete is None:
+        raise MinionError('Could not reliably determine whether the instance was already initialised, doing nothing.')
+
+    if jamf_setup_complete:
+        ret['comment'] = 'No changes required, instance already initialised. {}'.format(jamf_setup_complete)
+        ret['changes'] = dict()
+        ret['result'] = True
+        return ret
+    else:
+        logger.info('Instance not initialised, going ahead with initialization...')
+
+    j = _get_jss()
+    sysinit = uapiobjects.SystemInitialize(j, dict(
+        activationCode=activation_code,
+        institutionName=name,
+        isEulaAccepted=is_eula_accepted,
+        username=username,
+        password=password,
+        email=email,
+        jssUrl=j.base_url,
+    ))
+
+    try:
+        sysinit.save()
+    except jss.PostError as e:
+        raise MinionError('Invalid request to JSS, got: {}'.format(e.message))
+
+    return ret

@@ -53,6 +53,7 @@ def init(opts):
         password=opts['proxy']['password'],
         ssl_verify=opts['proxy'].get('ssl_verify', True),
     )
+    DETAILS['ssl_verify'] = opts['proxy'].get('ssl_verify', True)
     DETAILS['initialized'] = True
 
 
@@ -76,7 +77,7 @@ def ping():
     '''
     Is the REST server up?
     '''
-    r = salt.utils.http.query(DETAILS['url'], decode_type='json', decode=True)
+    r = salt.utils.http.query(DETAILS['url'], decode=False, verify_ssl=DETAILS.get('ssl_verify', None))
     return True
 
 
@@ -90,7 +91,8 @@ def grains():
     if GRAINS_CACHE is None:
         GRAINS_CACHE = {}
         health = salt.utils.http.query("{}healthCheck.html".format(__opts__['proxy']['url']), decode_type='json',
-                                       decode=True, backend='requests')
+                                       decode=True, backend='requests',
+                                       verify_ssl=__opts__['proxy'].get('ssl_verify', None))
         log.debug(json.dumps(health))
 
         if 'error' in health:
