@@ -111,7 +111,7 @@ def enrollment_settings(
         changes['new']['skip_certificate_install'] = skip_certificate_install
 
     if len(new_settings.keys()) > 0:
-        __salt__['jamf_settings.set_enrollment'](new_settings)
+        __salt__['jamf.set_enrollment'](new_settings)
 
     ret['changes'] = changes
     return ret

@@ -31,6 +31,7 @@ __virtualname__ = 'jamf'
 HAS_LIBS = False
 try:
     import jss
+    from jss import uapiobjects
     HAS_LIBS = True
 except ImportError:
     pass
@@ -88,7 +89,7 @@ def set_enrollment(values):
 
     '''
     j = _get_jss()
-    settings = jss.EnrollmentSetting(j, values)
+    settings = uapiobjects.EnrollmentSetting(j, values)
     try:
         logger.debug(dict(settings))
         settings.save()
