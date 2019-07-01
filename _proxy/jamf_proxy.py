@@ -7,6 +7,7 @@ import salt.utils.platform
 
 # Import python libs
 import logging
+import json
 import salt.utils.http
 
 __proxyenabled__ = ['jamf']
@@ -84,15 +85,24 @@ def grains():
     Get the grains from the proxied device
     '''
     global GRAINS_CACHE
+    global DETAILS
 
     if GRAINS_CACHE is None:
         GRAINS_CACHE = {}
-        health = salt.utils.http.query("{}healthCheck.html".format(DETAILS['url']), decode_type='json', decode=True)
-        setup_complete = (len(health) == 0)
+        health = salt.utils.http.query("{}healthCheck.html".format(__opts__['proxy']['url']), decode_type='json',
+                                       decode=True, backend='requests')
+        log.debug(json.dumps(health))
+
+        if 'error' in health:
+            log.error('Failed to contact JAMF Pro health check endpoint at ({}healthCheck.html), reason: {}'.format(
+                __opts__['proxy']['url'], health['error']))
+            return GRAINS_CACHE
+
+        setup_complete = (len(health['dict']) == 0)
         GRAINS_CACHE['jamf_setup_complete'] = setup_complete
 
         if not setup_complete:
-            status = health[0]
+            status = health['dict'][0]
             GRAINS_CACHE['jamf_setup_health_code'] = status['healthCode']
             GRAINS_CACHE['jamf_setup_description'] = status['description']
         else:

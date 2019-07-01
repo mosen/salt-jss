@@ -25,4 +25,7 @@ def __virtual__():
 
 
 def main(proxy):
-    return proxy['jamf.grains']()
+    if proxy is None:
+        log.warning('The proxy has not been fully initialized, so we cannot fetch grains at this time')
+    else:
+        return proxy['jamf.grains']()
